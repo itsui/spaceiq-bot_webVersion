@@ -30,12 +30,13 @@ class MultiDateBookingWorkflow:
     3. Continue until all dates are booked
     """
 
-    def __init__(self, refresh_interval: int = 30, max_attempts_per_date: int = 10, polling_mode: bool = False):
+    def __init__(self, refresh_interval: int = 30, max_attempts_per_date: int = 10, polling_mode: bool = False, headless: bool = False):
         self.config_path = Path(__file__).parent.parent.parent / "config" / "booking_config.json"
         self.refresh_interval = refresh_interval
         self.max_attempts_per_date = max_attempts_per_date
         self.polling_mode = polling_mode
-        self.session_manager = SessionManager()
+        self.headless = headless
+        self.session_manager = SessionManager(headless=headless)
 
         # Setup file logging
         self.logger, self.log_file = setup_file_logger()
@@ -388,7 +389,8 @@ class MultiDateBookingWorkflow:
 async def run_multi_date_booking(
     refresh_interval: int = 30,
     max_attempts_per_date: int = 10,
-    polling_mode: bool = False
+    polling_mode: bool = False,
+    headless: bool = False
 ) -> Dict[str, bool]:
     """
     Quick helper to run multi-date booking.
@@ -400,6 +402,7 @@ async def run_multi_date_booking(
         refresh_interval: Seconds between refresh attempts (default: 30)
         max_attempts_per_date: Maximum attempts per date (default: 10)
         polling_mode: If True, keeps trying all dates until at least one is booked (default: False)
+        headless: If True, runs browser in headless mode (default: False)
 
     Returns:
         Dictionary mapping date -> success status
@@ -414,6 +417,7 @@ async def run_multi_date_booking(
     workflow = MultiDateBookingWorkflow(
         refresh_interval=refresh_interval,
         max_attempts_per_date=max_attempts_per_date,
-        polling_mode=polling_mode
+        polling_mode=polling_mode,
+        headless=headless
     )
     return await workflow.run()

@@ -63,14 +63,19 @@ async def run_quick_booking():
     # Import and run booking
     from src.workflows.multi_date_booking import run_multi_date_booking
 
-    # Determine polling mode
+    # Determine modes
     polling_mode = "--poll" in sys.argv or "-poll" in sys.argv
+    headless = "--headless" in sys.argv or "-headless" in sys.argv
+
+    if headless:
+        print("\n[INFO] Headless mode enabled (no browser window)")
 
     # Run booking
     results = await run_multi_date_booking(
         refresh_interval=30,
         max_attempts_per_date=10,
-        polling_mode=polling_mode
+        polling_mode=polling_mode,
+        headless=headless
     )
 
     # Show final summary

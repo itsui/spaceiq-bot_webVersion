@@ -13,10 +13,12 @@ from config import Config
 class SessionManager:
     """Manages authenticated browser sessions"""
 
-    def __init__(self):
+    def __init__(self, headless: bool = None):
         self.browser: Browser = None
         self.context: BrowserContext = None
         self.playwright = None
+        # Override Config.HEADLESS if explicitly provided
+        self.headless = headless if headless is not None else Config.HEADLESS
 
     async def initialize(self) -> BrowserContext:
         """
@@ -45,7 +47,7 @@ class SessionManager:
 
         # Launch browser (high-fidelity, not CDP)
         self.browser = await self.playwright.chromium.launch(
-            headless=Config.HEADLESS,
+            headless=self.headless,
             args=[
                 '--disable-blink-features=AutomationControlled',  # Avoid detection
             ]

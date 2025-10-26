@@ -13,10 +13,7 @@ echo NOTE: Make sure your session is valid!
 echo If session expired, run: auto_warm_session.py first
 echo.
 
-REM Set headless mode temporarily for this session
-set HEADLESS=true
-
-python multi_date_book.py --auto
+python multi_date_book.py --auto --headless
 
 echo.
 echo Booking complete!

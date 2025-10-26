@@ -5,10 +5,11 @@ Reads dates from config/booking_config.json and tries to book all of them.
 Successfully booked dates are automatically removed from the config file.
 
 Usage:
-    python multi_date_book.py                    # Manual mode: uses dates from config
-    python multi_date_book.py --auto             # Auto mode: generates Wed/Thu dates (prompts to confirm)
-    python multi_date_book.py --auto --unattended # Auto mode: no prompts (for scheduled runs)
-    python multi_date_book.py --auto --unattended --poll # Auto mode + polling: keeps trying until seats found
+    python multi_date_book.py                              # Manual mode: uses dates from config
+    python multi_date_book.py --auto                       # Auto mode: generates Wed/Thu dates
+    python multi_date_book.py --auto --headless            # Auto mode + headless (no browser window)
+    python multi_date_book.py --auto --unattended          # Auto mode: no prompts (for scheduled runs)
+    python multi_date_book.py --auto --headless --poll     # Auto + headless + polling mode
 """
 
 import asyncio
@@ -88,6 +89,7 @@ async def main():
     auto_mode = "--auto" in sys.argv or "-auto" in sys.argv
     unattended = "--unattended" in sys.argv or "-unattended" in sys.argv
     polling_mode = "--poll" in sys.argv or "-poll" in sys.argv
+    headless = "--headless" in sys.argv or "-headless" in sys.argv
 
     if auto_mode:
         print("\n" + "=" * 70)
@@ -121,6 +123,13 @@ async def main():
         print("     Successfully booked dates will be automatically removed.\n")
 
     # Run workflow with config from booking_config.json
+    if headless:
+        print("\n" + "=" * 70)
+        print("         HEADLESS MODE ENABLED")
+        print("=" * 70)
+        print("\nBot will run in background (no browser window)")
+        print("=" * 70 + "\n")
+
     if polling_mode:
         print("\n" + "=" * 70)
         print("         POLLING MODE ENABLED")
@@ -133,7 +142,8 @@ async def main():
     results = await run_multi_date_booking(
         refresh_interval=30,  # Wait 30s between retries
         max_attempts_per_date=10,  # Try each date up to 10 times
-        polling_mode=polling_mode  # Keep trying until seats found
+        polling_mode=polling_mode,  # Keep trying until seats found
+        headless=headless  # Run without browser window
     )
 
     # Exit with appropriate code

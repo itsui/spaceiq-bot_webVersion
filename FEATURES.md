@@ -12,36 +12,41 @@ Run the bot without showing a browser window - perfect for booking while you wor
 
 ### Setup
 
-**Option A: Environment Variable (Permanent)**
+**Option A: Command Line Flag (Recommended)**
 
-Edit your `.env` file:
+Just add `--headless` to any booking command:
 ```bash
-HEADLESS=true
+# Standard booking
+python multi_date_book.py --auto --headless
+
+# With polling mode
+python multi_date_book.py --auto --headless --poll
+
+# Quick book (all-in-one)
+python quick_book.py --auto --headless
 ```
 
-Then run normally:
-```bash
-python multi_date_book.py --auto
-```
-
-**Option B: Batch File (Quick)**
+**Option B: Batch File (Quickest)**
 
 Just double-click:
 ```
 run_headless_booking.bat
 ```
+(This uses the `--headless` flag internally)
 
-**Option C: Command Line (Temporary)**
+**Option C: Environment Variable (Permanent - Optional)**
 
-Windows:
-```cmd
-set HEADLESS=true && python multi_date_book.py --auto
-```
-
-Linux/Mac:
+Edit your `.env` file to make it the default:
 ```bash
-HEADLESS=true python multi_date_book.py --auto
+HEADLESS=true
 ```
+
+Then run normally (no flag needed):
+```bash
+python multi_date_book.py --auto
+```
+
+Note: Command line flag `--headless` overrides .env setting
 
 ### Workflow
 
@@ -50,27 +55,26 @@ HEADLESS=true python multi_date_book.py --auto
    # Warm session with visible browser (SSO login)
    python auto_warm_session.py
 
-   # Enable headless mode
-   # Edit .env: HEADLESS=true
-
-   # Now run headless
-   python multi_date_book.py --auto
+   # Now run headless (just add --headless flag!)
+   python multi_date_book.py --auto --headless
    ```
 
-2. **Daily Use (All Headless)**
+2. **Daily Use (Headless)**
    ```bash
-   # Just run - no browser window!
-   python multi_date_book.py --auto
+   # Just run with --headless flag - no browser window!
+   python multi_date_book.py --auto --headless
+
+   # OR use the batch file
+   run_headless_booking.bat
    ```
 
 3. **Session Expired?**
    ```bash
    # Warm session again (visible browser)
-   # Set HEADLESS=false temporarily
    python auto_warm_session.py
 
    # Back to headless
-   python multi_date_book.py --auto
+   python multi_date_book.py --auto --headless
    ```
 
 ### Benefits
@@ -209,8 +213,8 @@ Result:
 # Quick test with visible browser
 python multi_date_book.py --auto
 
-# Now test headless (set HEADLESS=true in .env first)
-python multi_date_book.py --auto
+# Now test headless (just add --headless flag)
+python multi_date_book.py --auto --headless
 
 # Should work the same, just no browser window!
 ```
@@ -281,8 +285,8 @@ git checkout v1.0-stable
 
 # OR just disable the features:
 
-# Disable headless: Edit .env
-HEADLESS=false
+# Disable headless: Don't use --headless flag
+python multi_date_book.py --auto
 
 # Disable priorities: Edit config/booking_config.json
 # Remove or empty the "priority_ranges" array

@@ -118,11 +118,25 @@ Automatically warm session and book in one command:
 # Quick book with auto-generated Wed/Thu dates
 python quick_book.py --auto
 
+# Quick book in headless mode (no browser window)
+python quick_book.py --auto --headless
+
 # Quick book with polling (keeps trying until seats found)
-python quick_book.py --auto --poll
+python quick_book.py --auto --poll --headless
 
 # Use existing session without warming
-python quick_book.py --auto --skip-warm
+python quick_book.py --auto --skip-warm --headless
+```
+
+### Headless Mode (Background Booking)
+Run booking without showing browser window:
+
+```bash
+# Add --headless flag to any booking command
+python multi_date_book.py --auto --headless
+
+# Or use the batch file
+run_headless_booking.bat
 ```
 
 ## Scheduling for Automatic Booking
