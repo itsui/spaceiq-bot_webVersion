@@ -133,6 +133,21 @@ class MultiDateBookingWorkflow:
         results = {}
 
         try:
+            # Validate session first (especially important for headless mode)
+            if self.headless:
+                print("[INFO] Headless mode requested - validating session first...")
+                from src.auth.session_validator import validate_and_refresh_session
+
+                session_valid, use_headless = await validate_and_refresh_session(force_headless=True)
+
+                if not session_valid:
+                    print("\n[ERROR] Session validation failed. Cannot continue.")
+                    return {}
+
+                # Update headless setting based on validation result
+                self.headless = use_headless
+                self.session_manager.headless = use_headless
+
             # Initialize session
             context = await self.session_manager.initialize()
             page = await context.new_page()

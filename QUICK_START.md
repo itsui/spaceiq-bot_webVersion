@@ -80,8 +80,26 @@ run_headless_booking.bat
 ```
 
 ### Session Expired?
+
+**NEW: Automatic Handling!**
+
+If session expires and you run in headless mode:
+1. Bot detects expired session automatically
+2. Opens visible browser window for you to login
+3. After you login, browser closes
+4. Booking resumes in headless mode automatically!
+
 ```bash
-# 1. Warm session again
+# Just run this - bot handles session expiry automatically!
+python multi_date_book.py --auto --headless
+
+# OR
+run_headless_booking.bat
+```
+
+**Old manual way (still works):**
+```bash
+# 1. Warm session manually
 python auto_warm_session.py
 
 # 2. Resume headless booking

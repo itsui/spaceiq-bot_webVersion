@@ -68,12 +68,24 @@ Note: Command line flag `--headless` overrides .env setting
    run_headless_booking.bat
    ```
 
-3. **Session Expired?**
+3. **Session Expired? (Automatic Handling)**
    ```bash
-   # Warm session again (visible browser)
+   # Just run headless mode - bot auto-detects expired session!
+   python multi_date_book.py --auto --headless
+
+   # What happens:
+   # 1. Bot detects session expired
+   # 2. Opens visible browser automatically
+   # 3. You login via SSO
+   # 4. Browser closes, booking resumes in headless mode
+   ```
+
+   **Manual way (if preferred):**
+   ```bash
+   # Warm session manually
    python auto_warm_session.py
 
-   # Back to headless
+   # Then run headless
    python multi_date_book.py --auto --headless
    ```
 
