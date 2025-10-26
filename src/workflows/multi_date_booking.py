@@ -330,6 +330,24 @@ class MultiDateBookingWorkflow:
 
             print(f"[INFO] Found {len(available_desks)} available desk(s): {available_desks}")
 
+            # Step 7.5: Sort by priority (if configured)
+            config = self.load_config()
+            priority_config = config.get("desk_preferences", {}).get("priority_ranges", [])
+
+            if priority_config:
+                from src.utils.desk_priority import sort_desks_by_priority, explain_desk_priorities
+
+                # Sort desks by priority
+                sorted_desks = sort_desks_by_priority(available_desks, priority_config)
+
+                print(f"[INFO] Sorted desks by priority:")
+                priority_explanation = explain_desk_priorities(sorted_desks, priority_config)
+                for line in priority_explanation.split('\n'):
+                    if line.strip():
+                        print(f"       {line}")
+
+                available_desks = sorted_desks
+
             # Step 8: Use CV to find and click blue circles
             print(f"[8/9] Using computer vision to detect and click available desks...")
 
