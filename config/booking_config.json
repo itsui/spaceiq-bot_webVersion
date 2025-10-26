@@ -1,0 +1,28 @@
+{
+  "description": "SpaceIQ Booking Configuration - Set your preferences here",
+  "building": "LC",
+  "floor": "2",
+  "dates_to_try": [
+    "2025-11-13",
+    "2025-11-06",
+    "2025-10-30"
+  ],
+  "booked_dates": [
+    "2025-10-25",
+    "2025-10-26",
+    "2025-10-29",
+    "2025-11-05",
+    "2025-11-12",
+    "2025-11-19",
+    "2025-11-20"
+  ],
+  "desk_preferences": {
+    "prefix": "2.24",
+    "description": "Only book desks starting with 2.24 (e.g., 2.24.30, 2.24.17)"
+  },
+  "notes": {
+    "dates_to_try": "List of dates to book. Bot tries each once. If no seats, skips to next.",
+    "booked_dates": "Successfully booked dates are automatically moved here.",
+    "desk_prefix": "Only click desks whose ID starts with this prefix"
+  }
+}

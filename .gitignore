@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Playwright auth files (SENSITIVE - DO NOT COMMIT)
+playwright/.auth/
+*.json
+# EXCEPT these config files (we want to keep these):
+!config/booking_config.json
+!config/locked_desks.json
+!package.json
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Screenshots and test artifacts
+screenshots/
+test-results/
+playwright-report/
