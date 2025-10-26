@@ -20,10 +20,11 @@
     "prefix": "2.24",
     "description": "Only book desks starting with 2.24 (e.g., 2.24.30, 2.24.17)",
     "priority_ranges": [
-      {"range": "2.24.20-2.24.30", "priority": 1, "reason": "Near window"},
-      {"range": "2.24.02-2.24.12", "priority": 2, "reason": "Quiet area"},
-      {"range": "2.24.31-2.24.41", "priority": 3, "reason": "Acceptable"},
-      {"range": "2.24.43-2.24.66", "priority": 4, "reason": "Last resort"}
+      {"range": "2.24.01-2.24.20", "priority": 1, "reason": "Best area - most preferred"},
+      {"range": "2.24.34-2.24.42", "priority": 2, "reason": "Second choice"},
+      {"range": "2.24.52-2.24.68", "priority": 3, "reason": "Third choice"},
+      {"range": "2.24.22-2.24.33", "priority": 4, "reason": "Fourth choice"},
+      {"range": "2.24.44-2.24.46", "priority": 5, "reason": "Worst seats - last resort only"}
     ]
   },
   "notes": {

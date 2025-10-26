@@ -292,10 +292,15 @@ class SpaceIQBookingPage(BasePage):
 
     async def find_and_click_available_desks(self, available_desks: List[str], logger=None) -> Optional[str]:
         """
-        Find available desks using CV and click them.
+        Find available desks using CV and click them in priority order.
+
+        Two-pass approach:
+        1. Discovery: Click all blue circles to identify which desk each one is
+        2. Booking: Click the highest priority desk (based on available_desks order)
 
         Args:
-            available_desks: List of available desk codes (e.g., ['2.24.20', '2.24.28'])
+            available_desks: List of available desk codes in PRIORITY ORDER (e.g., ['2.24.20', '2.24.28'])
+                            First desk in list = highest priority
             logger: Optional logger
 
         Returns:
@@ -303,6 +308,7 @@ class SpaceIQBookingPage(BasePage):
         """
         from config import Config
         import os
+        import re
 
         # Get latest screenshot path
         screenshot_files = sorted(
@@ -325,12 +331,15 @@ class SpaceIQBookingPage(BasePage):
             print(f"       [FAILED] No blue circles detected")
             return None
 
-        print(f"       Found {len(circles)} blue circles, trying each...")
+        print(f"       Found {len(circles)} blue circles")
+        print(f"       PHASE 1: Identifying all blue circle desks...")
 
-        # Try clicking each blue circle
+        # PHASE 1: Discovery - Map all blue circles to desk codes
+        desk_to_coords = {}  # {desk_code: (x, y)}
+
         for i, (x, y) in enumerate(circles, 1):
             try:
-                msg = f"Clicking circle {i}/{len(circles)} at ({x}, {y})..."
+                msg = f"Checking circle {i}/{len(circles)} at ({x}, {y})..."
                 print(f"       {msg}")
                 if logger:
                     logger.info(msg)
@@ -343,39 +352,67 @@ class SpaceIQBookingPage(BasePage):
                 popup = self.page.locator('text=/Hoteling Desk/')
                 if await popup.count() > 0:
                     popup_text = await popup.first.text_content()
-                    print(f"       Popup text: {popup_text}")
 
                     # Extract desk code from popup (e.g., "Hoteling Desk: LC-2-2.24.28")
-                    import re
                     match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
                     if match:
                         desk_code = match.group(1)
-                        print(f"       Detected desk: {desk_code}")
+                        print(f"       → Identified: {desk_code}")
 
-                        # Check if this desk is in our available list
-                        if desk_code in available_desks:
-                            msg = f"Found available desk {desk_code}!"
-                            print(f"       [SUCCESS] {msg}")
-                            if logger:
-                                logger.info(msg)
-                            return desk_code
-                        else:
-                            print(f"       Desk {desk_code} not in available list, closing popup...")
-                            await self.page.keyboard.press('Escape')
-                            await asyncio.sleep(0.5)
+                        # Store coordinates for this desk
+                        desk_to_coords[desk_code] = (x, y)
+
+                        # Close popup and continue mapping
+                        await self.page.keyboard.press('Escape')
+                        await asyncio.sleep(0.5)
                     else:
-                        print(f"       Could not extract desk code from popup")
+                        print(f"       → Could not extract desk code")
                         await self.page.keyboard.press('Escape')
                         await asyncio.sleep(0.5)
 
             except Exception as e:
-                msg = f"Error clicking circle {i}: {e}"
+                msg = f"Error checking circle {i}: {e}"
                 print(f"       {msg}")
                 if logger:
                     logger.error(msg)
                 continue
 
+        print(f"       Identified {len(desk_to_coords)} desks from blue circles")
+        print(f"       PHASE 2: Booking highest priority available desk...")
+
+        # PHASE 2: Booking - Iterate through available_desks in PRIORITY ORDER
+        for desk_code in available_desks:
+            if desk_code in desk_to_coords:
+                x, y = desk_to_coords[desk_code]
+                msg = f"Found highest priority desk: {desk_code} (Priority position: {available_desks.index(desk_code) + 1})"
+                print(f"       [PRIORITY] {msg}")
+                if logger:
+                    logger.info(msg)
+
+                # Click this desk to book it
+                print(f"       Clicking to book {desk_code} at ({x}, {y})...")
+                await self.page.mouse.click(x, y)
+                await asyncio.sleep(1.5)
+
+                # Verify popup appeared
+                popup = self.page.locator('text=/Hoteling Desk/')
+                if await popup.count() > 0:
+                    popup_text = await popup.first.text_content()
+                    if desk_code in popup_text:
+                        msg = f"Successfully selected highest priority desk {desk_code}!"
+                        print(f"       [SUCCESS] {msg}")
+                        if logger:
+                            logger.info(msg)
+                        return desk_code
+                    else:
+                        print(f"       [WARNING] Popup shows different desk, trying next priority...")
+                        await self.page.keyboard.press('Escape')
+                        await asyncio.sleep(0.5)
+                        continue
+
         print(f"       [FAILED] None of the blue circles matched available desks")
+        print(f"       Available: {available_desks}")
+        print(f"       Detected: {list(desk_to_coords.keys())}")
         return None
 
     async def book_desk_via_api(self, desk_code: str, date_str: str, logger=None) -> bool:
