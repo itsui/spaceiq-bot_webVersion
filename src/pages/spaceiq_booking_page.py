@@ -378,16 +378,24 @@ class SpaceIQBookingPage(BasePage):
                 continue
 
         print(f"       Identified {len(desk_to_coords)} desks from blue circles")
+        if logger:
+            logger.info(f"CV Detection - Identified desks: {list(desk_to_coords.keys())}")
+
         print(f"       PHASE 2: Booking highest priority available desk...")
+        if logger:
+            logger.info(f"PHASE 2 - Available desks (priority order): {available_desks}")
+            logger.info(f"PHASE 2 - Detected desks (from CV): {list(desk_to_coords.keys())}")
 
         # PHASE 2: Booking - Iterate through available_desks in PRIORITY ORDER
         for desk_code in available_desks:
             if desk_code in desk_to_coords:
                 x, y = desk_to_coords[desk_code]
-                msg = f"Found highest priority desk: {desk_code} (Priority position: {available_desks.index(desk_code) + 1})"
+                priority_pos = available_desks.index(desk_code) + 1
+                msg = f"Found highest priority desk: {desk_code} (Priority position: {priority_pos}/{len(available_desks)})"
                 print(f"       [PRIORITY] {msg}")
                 if logger:
-                    logger.info(msg)
+                    logger.info(f"PRIORITY MATCH - Desk: {desk_code}, Priority Position: {priority_pos}, Coordinates: ({x}, {y})")
+                    logger.info(f"This is the FIRST match in priority order - booking this desk")
 
                 # Click this desk to book it
                 print(f"       Clicking to book {desk_code} at ({x}, {y})...")
@@ -413,6 +421,10 @@ class SpaceIQBookingPage(BasePage):
         print(f"       [FAILED] None of the blue circles matched available desks")
         print(f"       Available: {available_desks}")
         print(f"       Detected: {list(desk_to_coords.keys())}")
+        if logger:
+            logger.error(f"NO MATCH - Available desks (priority order): {available_desks}")
+            logger.error(f"NO MATCH - Detected blue circles: {list(desk_to_coords.keys())}")
+            logger.error(f"NO MATCH - No overlap between available and detected desks!")
         return None
 
     async def book_desk_via_api(self, desk_code: str, date_str: str, logger=None) -> bool:

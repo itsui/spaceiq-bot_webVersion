@@ -15,6 +15,7 @@ import logging
 from src.pages.spaceiq_booking_page import SpaceIQBookingPage
 from src.auth.session_manager import SessionManager
 from src.utils.file_logger import setup_file_logger
+from src.utils.console_logger import start_console_logging, stop_console_logging
 
 
 class MultiDateBookingWorkflow:
@@ -43,6 +44,9 @@ class MultiDateBookingWorkflow:
         self.logger.info("=" * 70)
         self.logger.info("Multi-Date Booking Workflow Initialized")
         self.logger.info("=" * 70)
+
+        # Start console logging (captures ALL print statements)
+        self.console_log_file, self.console_logger = start_console_logging()
 
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON file."""
@@ -272,6 +276,9 @@ class MultiDateBookingWorkflow:
         finally:
             await self.session_manager.close()
 
+            # Stop console logging
+            stop_console_logging(self.console_logger)
+
     async def _try_booking_date(
         self,
         booking_page: SpaceIQBookingPage,
@@ -345,6 +352,7 @@ class MultiDateBookingWorkflow:
                 return False  # Skip to next date immediately
 
             print(f"[INFO] Found {len(available_desks)} available desk(s): {available_desks}")
+            self.logger.info(f"Available desks (unsorted): {available_desks}")
 
             # Step 7.5: Sort by priority (if configured)
             config = self.load_config()
@@ -352,6 +360,8 @@ class MultiDateBookingWorkflow:
 
             if priority_config:
                 from src.utils.desk_priority import sort_desks_by_priority, explain_desk_priorities
+
+                self.logger.info(f"Priority configuration: {priority_config}")
 
                 # Sort desks by priority
                 sorted_desks = sort_desks_by_priority(available_desks, priority_config)
@@ -362,7 +372,11 @@ class MultiDateBookingWorkflow:
                     if line.strip():
                         print(f"       {line}")
 
+                self.logger.info(f"Available desks (sorted by priority): {sorted_desks}")
+
                 available_desks = sorted_desks
+            else:
+                self.logger.info("No priority configuration found - using unsorted order")
 
             # Step 8: Use CV to find and click blue circles
             print(f"[8/9] Using computer vision to detect and click available desks...")
