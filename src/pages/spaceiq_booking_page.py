@@ -348,12 +348,21 @@ class SpaceIQBookingPage(BasePage):
                 await self.page.mouse.click(x, y)
                 await asyncio.sleep(1.5)
 
-                # Check if popup appeared
-                popup = self.page.locator('text=/Hoteling Desk/')
+                # Check if popup appeared - use the specific HTML element from the popup dialog
+                # Looking for: <td colspan="2">Hoteling Desk 2.24.40</td>
+                popup = self.page.locator('td:has-text("Hoteling Desk")')
+
+                # Wait for popup to be visible (with timeout)
+                try:
+                    await popup.first.wait_for(state='visible', timeout=3000)
+                except:
+                    print(f"       → No popup appeared")
+                    continue
+
                 if await popup.count() > 0:
                     popup_text = await popup.first.text_content()
 
-                    # Extract desk code from popup (e.g., "Hoteling Desk: LC-2-2.24.28")
+                    # Extract desk code from popup (e.g., "Hoteling Desk 2.24.28")
                     match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
                     if match:
                         desk_code = match.group(1)
@@ -366,7 +375,7 @@ class SpaceIQBookingPage(BasePage):
                         await self.page.keyboard.press('Escape')
                         await asyncio.sleep(0.5)
                     else:
-                        print(f"       → Could not extract desk code")
+                        print(f"       → Could not extract desk code from popup text: {popup_text}")
                         await self.page.keyboard.press('Escape')
                         await asyncio.sleep(0.5)
 
