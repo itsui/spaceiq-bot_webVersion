@@ -362,11 +362,12 @@ class SpaceIQBookingPage(BasePage):
 
                 # Check if popup appeared - use the specific HTML element from the popup dialog
                 # Looking for: <td colspan="2">Hoteling Desk 2.24.40</td>
-                popup = self.page.locator('td:has-text("Hoteling Desk")')
+                # IMPORTANT: Create a fresh locator AFTER clicking to avoid stale element references
+                popup = self.page.locator('td:has-text("Hoteling Desk")').first
 
                 # Wait for popup to be visible (with timeout)
                 try:
-                    await popup.first.wait_for(state='visible', timeout=3000)
+                    await popup.wait_for(state='visible', timeout=3000)
                 except Exception as popup_error:
                     msg = f"No popup appeared for circle at ({x}, {y})"
                     print(f"       → {msg}")
@@ -374,8 +375,17 @@ class SpaceIQBookingPage(BasePage):
                         logger.warning(f"{msg}: {popup_error}")
                     continue
 
-                if await popup.count() > 0:
-                    popup_text = await popup.first.text_content()
+                # Read popup text
+                try:
+                    popup_text = await popup.text_content()
+                except Exception as text_error:
+                    msg = f"Failed to read popup text for circle at ({x}, {y})"
+                    print(f"       → {msg}")
+                    if logger:
+                        logger.warning(f"{msg}: {text_error}")
+                    continue
+
+                if popup_text:
 
                     if logger:
                         logger.info(f"Circle {i} popup text: '{popup_text}'")
@@ -392,15 +402,31 @@ class SpaceIQBookingPage(BasePage):
                         # Store coordinates for this desk
                         desk_to_coords[desk_code] = (x, y)
 
-                        # Close popup and continue mapping
+                        # Close popup and wait for it to be fully hidden
                         await self.page.keyboard.press('Escape')
+
+                        # Wait for popup to be hidden/detached from DOM
+                        try:
+                            await popup.wait_for(state='hidden', timeout=2000)
+                        except:
+                            pass  # Continue even if wait times out
+
                         await asyncio.sleep(0.5)
                     else:
                         msg = f"Could not extract desk code from popup text: '{popup_text}'"
                         print(f"       → {msg}")
                         if logger:
                             logger.warning(msg)
+
+                        # Close popup and wait for it to be fully hidden
                         await self.page.keyboard.press('Escape')
+
+                        # Wait for popup to be hidden/detached from DOM
+                        try:
+                            await popup.wait_for(state='hidden', timeout=2000)
+                        except:
+                            pass  # Continue even if wait times out
+
                         await asyncio.sleep(0.5)
 
             except Exception as e:
