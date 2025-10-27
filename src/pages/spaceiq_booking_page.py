@@ -310,6 +310,11 @@ class SpaceIQBookingPage(BasePage):
         import os
         import re
 
+        # Log browser viewport size (affects text visibility)
+        viewport_size = self.page.viewport_size
+        if logger:
+            logger.info(f"Browser viewport size: {viewport_size}")
+
         # Get latest screenshot path
         screenshot_files = sorted(
             Config.SCREENSHOTS_DIR.glob("floor_map_loaded_*.png"),
@@ -323,15 +328,22 @@ class SpaceIQBookingPage(BasePage):
 
         screenshot_path = str(screenshot_files[0])
         print(f"       Analyzing screenshot: {screenshot_path}")
+        if logger:
+            logger.info(f"Using screenshot: {screenshot_path}")
 
         # Detect blue circles
         circles = self.desk_detector.find_blue_circles(screenshot_path, debug=True)
 
         if not circles:
             print(f"       [FAILED] No blue circles detected")
+            if logger:
+                logger.error("CV Detection failed: No blue circles found in screenshot")
             return None
 
         print(f"       Found {len(circles)} blue circles")
+        if logger:
+            logger.info(f"CV Detection - Found {len(circles)} blue circles at coordinates: {circles}")
+
         print(f"       PHASE 1: Identifying all blue circle desks...")
 
         # PHASE 1: Discovery - Map all blue circles to desk codes
@@ -355,18 +367,27 @@ class SpaceIQBookingPage(BasePage):
                 # Wait for popup to be visible (with timeout)
                 try:
                     await popup.first.wait_for(state='visible', timeout=3000)
-                except:
-                    print(f"       → No popup appeared")
+                except Exception as popup_error:
+                    msg = f"No popup appeared for circle at ({x}, {y})"
+                    print(f"       → {msg}")
+                    if logger:
+                        logger.warning(f"{msg}: {popup_error}")
                     continue
 
                 if await popup.count() > 0:
                     popup_text = await popup.first.text_content()
+
+                    if logger:
+                        logger.info(f"Circle {i} popup text: '{popup_text}'")
 
                     # Extract desk code from popup (e.g., "Hoteling Desk 2.24.28")
                     match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
                     if match:
                         desk_code = match.group(1)
                         print(f"       → Identified: {desk_code}")
+
+                        if logger:
+                            logger.info(f"Extracted desk code '{desk_code}' from circle at ({x}, {y})")
 
                         # Store coordinates for this desk
                         desk_to_coords[desk_code] = (x, y)
@@ -375,7 +396,10 @@ class SpaceIQBookingPage(BasePage):
                         await self.page.keyboard.press('Escape')
                         await asyncio.sleep(0.5)
                     else:
-                        print(f"       → Could not extract desk code from popup text: {popup_text}")
+                        msg = f"Could not extract desk code from popup text: '{popup_text}'"
+                        print(f"       → {msg}")
+                        if logger:
+                            logger.warning(msg)
                         await self.page.keyboard.press('Escape')
                         await asyncio.sleep(0.5)
 
@@ -426,6 +450,12 @@ class SpaceIQBookingPage(BasePage):
                         await self.page.keyboard.press('Escape')
                         await asyncio.sleep(0.5)
                         continue
+            else:
+                # Log when we skip a desk because CV didn't detect it
+                priority_pos = available_desks.index(desk_code) + 1
+                if logger:
+                    logger.info(f"Skipping desk {desk_code} (Priority position: {priority_pos}) - CV did not detect this desk")
+                continue
 
         print(f"       [FAILED] None of the blue circles matched available desks")
         print(f"       Available: {available_desks}")

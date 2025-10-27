@@ -50,9 +50,9 @@ class MultiDateBookingWorkflow:
         # Start console logging (captures ALL print statements)
         self.console_log_file, self.console_logger = start_console_logging()
 
-        # Cleanup old files (keep only current and previous session)
+        # Cleanup old files (screenshots are large, logs are small and useful for debugging)
         cleanup_old_screenshots(keep_sessions=2, logger=self.logger)
-        cleanup_old_logs(keep_sessions=2, logger=self.logger)
+        cleanup_old_logs(keep_sessions=10, logger=self.logger)
 
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON file."""
