@@ -320,9 +320,14 @@ class SpaceIQBookingPage(BasePage):
         """
         Find available desks using CV and click them in priority order.
 
-        Two-pass approach:
-        1. Discovery: Click all blue circles to identify which desk each one is
-        2. Booking: Click the highest priority desk (based on available_desks order)
+        Strategy:
+        1. Detect blue circles using CV (fast)
+        2. If position cache available:
+           - Look up desk codes from circle positions (instant)
+           - Click highest priority desk directly (fast)
+        3. If no cache:
+           - Click all circles to identify desks (slow)
+           - Then click highest priority desk
 
         Args:
             available_desks: List of available desk codes in PRIORITY ORDER (e.g., ['2.24.20', '2.24.28'])
@@ -333,6 +338,7 @@ class SpaceIQBookingPage(BasePage):
             Desk code if successfully clicked and popup appeared, None otherwise
         """
         from config import Config
+        from src.utils.desk_position_cache import get_cache
         import os
         import re
 
@@ -340,6 +346,25 @@ class SpaceIQBookingPage(BasePage):
         viewport_size = self.page.viewport_size
         if logger:
             logger.info(f"Browser viewport size: {viewport_size}")
+
+        # Load position cache
+        cache = get_cache()
+        use_cache = cache.is_available() and cache.validate_viewport(viewport_size)
+
+        if use_cache:
+            print(f"       ⚡ Using cached desk positions (fast mode)")
+            if logger:
+                cache_info = cache.get_cache_info()
+                logger.info(f"Using position cache - {cache_info['total_desks']} desks cached from {cache_info['mapping_date']}")
+        else:
+            if cache.is_available():
+                print(f"       ⚠️  Cache viewport mismatch, using discovery mode")
+                if logger:
+                    logger.warning(f"Viewport mismatch: cache {cache.get_cache_info()['viewport']} vs current {viewport_size}")
+            else:
+                print(f"       ℹ️  No position cache, using discovery mode (run map_desk_positions.py to build cache)")
+                if logger:
+                    logger.info("No position cache available - using click-all-circles discovery mode")
 
         # Get latest screenshot path
         screenshot_files = sorted(
@@ -370,93 +395,112 @@ class SpaceIQBookingPage(BasePage):
         if logger:
             logger.info(f"CV Detection - Found {len(circles)} blue circles at coordinates: {circles}")
 
-        print(f"       PHASE 1: Identifying all blue circle desks...")
-
         # PHASE 1: Discovery - Map all blue circles to desk codes
         desk_to_coords = {}  # {desk_code: (x, y)}
 
-        for i, (x, y) in enumerate(circles, 1):
-            try:
-                msg = f"Checking circle {i}/{len(circles)} at ({x}, {y})..."
-                print(f"       {msg}")
+        # Fast path: Use cache if available
+        if use_cache:
+            print(f"       PHASE 1: Looking up desk codes from cache... ⚡")
+            desk_to_coords = cache.lookup_desks_from_circles(circles, tolerance=10)
+
+            if logger:
+                logger.info(f"Cache lookup - Identified {len(desk_to_coords)} desks: {list(desk_to_coords.keys())}")
+
+            print(f"       ✓ Identified {len(desk_to_coords)} desks instantly from cache")
+
+            # Log any circles that weren't in cache
+            if len(desk_to_coords) < len(circles):
+                unknown_count = len(circles) - len(desk_to_coords)
+                print(f"       ℹ️  {unknown_count} circle(s) not in cache (may be new desks)")
                 if logger:
-                    logger.info(msg)
+                    logger.info(f"Found {unknown_count} circles not in cache - these may be newly added desks")
 
-                # Click the circle
-                await self.page.mouse.click(x, y)
-                await asyncio.sleep(1.5)
+        # Slow path: Click all circles to identify desks
+        else:
+            print(f"       PHASE 1: Identifying all blue circle desks...")
 
-                # Check if popup appeared - use the specific HTML element from the popup dialog
-                # Looking for: <td colspan="2">Hoteling Desk 2.24.40</td>
-                # IMPORTANT: Create a fresh locator AFTER clicking to avoid stale element references
-                popup = self.page.locator('td:has-text("Hoteling Desk")').first
-
-                # Wait for popup to be visible (with timeout)
+            for i, (x, y) in enumerate(circles, 1):
                 try:
-                    await popup.wait_for(state='visible', timeout=3000)
-                except Exception as popup_error:
-                    msg = f"No popup appeared for circle at ({x}, {y})"
-                    print(f"       → {msg}")
+                    msg = f"Checking circle {i}/{len(circles)} at ({x}, {y})..."
+                    print(f"       {msg}")
                     if logger:
-                        logger.warning(f"{msg}: {popup_error}")
-                    continue
+                        logger.info(msg)
 
-                # Read popup text
-                try:
-                    popup_text = await popup.text_content()
-                except Exception as text_error:
-                    msg = f"Failed to read popup text for circle at ({x}, {y})"
-                    print(f"       → {msg}")
-                    if logger:
-                        logger.warning(f"{msg}: {text_error}")
-                    continue
+                    # Click the circle
+                    await self.page.mouse.click(x, y)
+                    await asyncio.sleep(1.5)
 
-                if popup_text:
+                    # Check if popup appeared - use the specific HTML element from the popup dialog
+                    # Looking for: <td colspan="2">Hoteling Desk 2.24.40</td>
+                    # IMPORTANT: Create a fresh locator AFTER clicking to avoid stale element references
+                    popup = self.page.locator('td:has-text("Hoteling Desk")').first
 
-                    if logger:
-                        logger.info(f"Circle {i} popup text: '{popup_text}'")
-
-                    # Extract desk code from popup (e.g., "Hoteling Desk 2.24.28")
-                    match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
-                    if match:
-                        desk_code = match.group(1)
-                        print(f"       → Identified: {desk_code}")
-
-                        if logger:
-                            logger.info(f"Extracted desk code '{desk_code}' from circle at ({x}, {y})")
-
-                        # Store coordinates for this desk
-                        desk_to_coords[desk_code] = (x, y)
-
-                        # Close popup (Escape doesn't work, need to click X or outside)
-                        await self.close_popup(logger=logger)
-
-                        # Wait for popup to be hidden/detached from DOM
-                        try:
-                            await popup.wait_for(state='hidden', timeout=2000)
-                        except:
-                            pass  # Continue even if wait times out
-                    else:
-                        msg = f"Could not extract desk code from popup text: '{popup_text}'"
+                    # Wait for popup to be visible (with timeout)
+                    try:
+                        await popup.wait_for(state='visible', timeout=3000)
+                    except Exception as popup_error:
+                        msg = f"No popup appeared for circle at ({x}, {y})"
                         print(f"       → {msg}")
                         if logger:
-                            logger.warning(msg)
+                            logger.warning(f"{msg}: {popup_error}")
+                        continue
 
-                        # Close popup (Escape doesn't work, need to click X or outside)
-                        await self.close_popup(logger=logger)
+                    # Read popup text
+                    try:
+                        popup_text = await popup.text_content()
+                    except Exception as text_error:
+                        msg = f"Failed to read popup text for circle at ({x}, {y})"
+                        print(f"       → {msg}")
+                        if logger:
+                            logger.warning(f"{msg}: {text_error}")
+                        continue
 
-                        # Wait for popup to be hidden/detached from DOM
-                        try:
-                            await popup.wait_for(state='hidden', timeout=2000)
-                        except:
-                            pass  # Continue even if wait times out
+                    if popup_text:
 
-            except Exception as e:
-                msg = f"Error checking circle {i}: {e}"
-                print(f"       {msg}")
-                if logger:
-                    logger.error(msg)
-                continue
+                        if logger:
+                            logger.info(f"Circle {i} popup text: '{popup_text}'")
+
+                        # Extract desk code from popup (e.g., "Hoteling Desk 2.24.28")
+                        match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
+                        if match:
+                            desk_code = match.group(1)
+                            print(f"       → Identified: {desk_code}")
+
+                            if logger:
+                                logger.info(f"Extracted desk code '{desk_code}' from circle at ({x}, {y})")
+
+                            # Store coordinates for this desk
+                            desk_to_coords[desk_code] = (x, y)
+
+                            # Close popup (Escape doesn't work, need to click X or outside)
+                            await self.close_popup(logger=logger)
+
+                            # Wait for popup to be hidden/detached from DOM
+                            try:
+                                await popup.wait_for(state='hidden', timeout=2000)
+                            except:
+                                pass  # Continue even if wait times out
+                        else:
+                            msg = f"Could not extract desk code from popup text: '{popup_text}'"
+                            print(f"       → {msg}")
+                            if logger:
+                                logger.warning(msg)
+
+                            # Close popup (Escape doesn't work, need to click X or outside)
+                            await self.close_popup(logger=logger)
+
+                            # Wait for popup to be hidden/detached from DOM
+                            try:
+                                await popup.wait_for(state='hidden', timeout=2000)
+                            except:
+                                pass  # Continue even if wait times out
+
+                except Exception as e:
+                    msg = f"Error checking circle {i}: {e}"
+                    print(f"       {msg}")
+                    if logger:
+                        logger.error(msg)
+                    continue
 
         print(f"       Identified {len(desk_to_coords)} desks from blue circles")
         if logger:
