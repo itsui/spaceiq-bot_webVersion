@@ -20,22 +20,35 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
+import sys
+import traceback
 
 from src.pages.spaceiq_booking_page import SpaceIQBookingPage
 from src.auth.session_manager import SessionManager
+from src.utils.file_logger import setup_file_logger
+from src.utils.console_logger import start_console_logging, stop_console_logging
 from config import Config
 
 
 async def find_next_weekend_date():
-    """Find the next Saturday or Sunday with available desks."""
+    """Find the next Sunday (preferred) or Saturday with available desks."""
     today = datetime.now().date()
 
     # Look ahead up to 4 weeks
+    # First, try to find a Sunday (weekday = 6)
     for days_ahead in range(0, 29):
         check_date = today + timedelta(days=days_ahead)
 
-        # Saturday = 5, Sunday = 6
-        if check_date.weekday() in [5, 6]:
+        # Sunday = 6 (preferred - more available desks)
+        if check_date.weekday() == 6:
+            return check_date
+
+    # If no Sunday found, try Saturday
+    for days_ahead in range(0, 29):
+        check_date = today + timedelta(days=days_ahead)
+
+        # Saturday = 5
+        if check_date.weekday() == 5:
             return check_date
 
     return None
@@ -45,22 +58,38 @@ async def map_desk_positions():
     """
     Map all desk positions by clicking all blue circles on a weekend date.
     """
+    # Setup logging
+    logger, log_file = setup_file_logger()
+    console_log_file, console_logger = start_console_logging()
+
+    logger.info("=" * 70)
+    logger.info("Desk Position Mapper Tool Started")
+    logger.info("=" * 70)
+
     print("\n" + "=" * 70)
     print("         Desk Position Mapper Tool")
     print("=" * 70)
     print("\nThis tool will build a cache of desk positions for fast booking.")
-    print("It will click all blue circles to identify desk locations.\n")
+    print("It will click all blue circles to identify desk locations.")
+    print(f"\nLog file: {log_file}")
+    print(f"Console log: {console_log_file}\n")
 
     # Find next weekend date
     target_date = await find_next_weekend_date()
 
     if not target_date:
-        print("[ERROR] Could not find a weekend date in the next 4 weeks")
+        msg = "Could not find a weekend date in the next 4 weeks"
+        print(f"[ERROR] {msg}")
+        logger.error(msg)
+        stop_console_logging(console_logger)
         return
 
     days_ahead = (target_date - datetime.now().date()).days
     date_str = target_date.strftime('%Y-%m-%d')
     day_name = target_date.strftime('%a, %b %d')
+
+    logger.info(f"Target date: {day_name} ({date_str})")
+    logger.info(f"Days ahead: {days_ahead}")
 
     print(f"Target date: {day_name} ({date_str})")
     print(f"Days ahead: {days_ahead}")
@@ -73,6 +102,8 @@ async def map_desk_positions():
 
     building = config.get("building", "LC")
     floor = config.get("floor", "2")
+
+    logger.info(f"Building: {building}, Floor: {floor}")
 
     print(f"Building: {building}")
     print(f"Floor: {floor}")
@@ -144,8 +175,12 @@ async def map_desk_positions():
         circles = detector.find_blue_circles(screenshot_path, debug=True)
 
         if not circles:
-            print("[ERROR] No blue circles detected")
+            msg = "No blue circles detected"
+            print(f"[ERROR] {msg}")
+            logger.error(msg)
             return
+
+        logger.info(f"Found {len(circles)} blue circles at coordinates: {circles}")
 
         print(f"Found {len(circles)} blue circles\n")
         print("=" * 70)
@@ -154,6 +189,7 @@ async def map_desk_positions():
 
         # Click each circle and map position
         desk_positions = {}
+        logger.info("Starting to map desk positions by clicking circles")
 
         for i, (x, y) in enumerate(circles, 1):
             print(f"[{i}/{len(circles)}] Clicking circle at ({x}, {y})...", end=" ")
@@ -168,14 +204,16 @@ async def map_desk_positions():
 
                 try:
                     await popup.wait_for(state='visible', timeout=3000)
-                except:
+                except Exception as popup_error:
                     print("❌ No popup")
+                    logger.warning(f"Circle {i} at ({x}, {y}) - No popup appeared: {popup_error}")
                     continue
 
                 try:
                     popup_text = await popup.text_content()
-                except:
+                except Exception as text_error:
                     print("❌ Could not read popup")
+                    logger.warning(f"Circle {i} at ({x}, {y}) - Could not read popup text: {text_error}")
                     continue
 
                 # Extract desk code
@@ -186,11 +224,13 @@ async def map_desk_positions():
                     desk_code = match.group(1)
                     desk_positions[desk_code] = {"x": x, "y": y}
                     print(f"✓ {desk_code}")
+                    logger.info(f"Circle {i} at ({x}, {y}) - Mapped to desk {desk_code}")
                 else:
                     print(f"❌ Could not extract desk code from: {popup_text}")
+                    logger.warning(f"Circle {i} at ({x}, {y}) - Could not extract desk code from: {popup_text}")
 
                 # Close popup
-                await booking_page.close_popup()
+                await booking_page.close_popup(logger=logger)
 
                 # Wait for popup to be hidden
                 try:
@@ -200,6 +240,8 @@ async def map_desk_positions():
 
             except Exception as e:
                 print(f"❌ Error: {e}")
+                logger.error(f"Circle {i} at ({x}, {y}) - Error: {e}")
+                logger.error(traceback.format_exc())
                 continue
 
         print(f"\n✓ Mapped {len(desk_positions)} unique desk positions\n")
@@ -233,16 +275,26 @@ async def map_desk_positions():
             pos = desk_positions[desk]
             print(f"  {i:2}. {desk} at ({pos['x']}, {pos['y']})")
 
+        logger.info(f"Cache saved to: {cache_file}")
+        logger.info(f"Total desks mapped: {len(desk_positions)}")
+        logger.info("Position cache is ready!")
+
         print("\n✓ Position cache is ready!")
         print("  Booking will now be 10x faster! ⚡\n")
 
     except Exception as e:
-        print(f"\n[ERROR] Mapping failed: {e}")
-        import traceback
+        error_msg = f"Mapping failed: {e}"
+        print(f"\n[ERROR] {error_msg}")
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
         traceback.print_exc()
 
     finally:
         await session_manager.close()
+        stop_console_logging(console_logger)
+        print(f"\n[INFO] Logs saved to:")
+        print(f"  Console: {console_log_file}")
+        print(f"  Details: {log_file}\n")
 
 
 if __name__ == "__main__":
