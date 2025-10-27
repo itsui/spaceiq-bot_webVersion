@@ -290,6 +290,32 @@ class SpaceIQBookingPage(BasePage):
 
         return available_desks
 
+    async def close_popup(self, logger=None):
+        """
+        Close the desk booking popup.
+
+        Escape key doesn't work - need to click X button or outside popup.
+        """
+        try:
+            # Look for close button (SVG with X icon)
+            close_button = self.page.locator('svg[stroke="#A4AFB7"]').first
+            if await close_button.count() > 0:
+                await close_button.click()
+                if logger:
+                    logger.info(f"Closed popup by clicking X button")
+            else:
+                # Fallback: Click outside popup area (top-left corner)
+                await self.page.mouse.click(50, 50)
+                if logger:
+                    logger.info(f"Closed popup by clicking outside (close button not found)")
+        except Exception as close_error:
+            # Fallback: Click outside popup area
+            await self.page.mouse.click(50, 50)
+            if logger:
+                logger.warning(f"Failed to click close button, clicked outside instead: {close_error}")
+
+        await asyncio.sleep(0.5)
+
     async def find_and_click_available_desks(self, available_desks: List[str], logger=None) -> Optional[str]:
         """
         Find available desks using CV and click them in priority order.
@@ -402,65 +428,28 @@ class SpaceIQBookingPage(BasePage):
                         # Store coordinates for this desk
                         desk_to_coords[desk_code] = (x, y)
 
-                        # Close popup by clicking the X button (SVG close icon)
-                        # Escape key doesn't work - need to click the close button or outside popup
-                        try:
-                            # Look for close button (SVG with X icon or parent button)
-                            close_button = self.page.locator('svg[stroke="#A4AFB7"]').first
-                            if await close_button.count() > 0:
-                                await close_button.click()
-                                if logger:
-                                    logger.info(f"Closed popup by clicking X button")
-                            else:
-                                # Fallback: Click outside popup area (top-left corner)
-                                await self.page.mouse.click(50, 50)
-                                if logger:
-                                    logger.info(f"Closed popup by clicking outside (close button not found)")
-                        except Exception as close_error:
-                            # Fallback: Click outside popup area
-                            await self.page.mouse.click(50, 50)
-                            if logger:
-                                logger.warning(f"Failed to click close button, clicked outside instead: {close_error}")
+                        # Close popup (Escape doesn't work, need to click X or outside)
+                        await self.close_popup(logger=logger)
 
                         # Wait for popup to be hidden/detached from DOM
                         try:
                             await popup.wait_for(state='hidden', timeout=2000)
                         except:
                             pass  # Continue even if wait times out
-
-                        await asyncio.sleep(0.5)
                     else:
                         msg = f"Could not extract desk code from popup text: '{popup_text}'"
                         print(f"       → {msg}")
                         if logger:
                             logger.warning(msg)
 
-                        # Close popup by clicking the X button or outside
-                        try:
-                            # Look for close button (SVG with X icon or parent button)
-                            close_button = self.page.locator('svg[stroke="#A4AFB7"]').first
-                            if await close_button.count() > 0:
-                                await close_button.click()
-                                if logger:
-                                    logger.info(f"Closed popup by clicking X button")
-                            else:
-                                # Fallback: Click outside popup area (top-left corner)
-                                await self.page.mouse.click(50, 50)
-                                if logger:
-                                    logger.info(f"Closed popup by clicking outside (close button not found)")
-                        except Exception as close_error:
-                            # Fallback: Click outside popup area
-                            await self.page.mouse.click(50, 50)
-                            if logger:
-                                logger.warning(f"Failed to click close button, clicked outside instead: {close_error}")
+                        # Close popup (Escape doesn't work, need to click X or outside)
+                        await self.close_popup(logger=logger)
 
                         # Wait for popup to be hidden/detached from DOM
                         try:
                             await popup.wait_for(state='hidden', timeout=2000)
                         except:
                             pass  # Continue even if wait times out
-
-                        await asyncio.sleep(0.5)
 
             except Exception as e:
                 msg = f"Error checking circle {i}: {e}"
@@ -506,8 +495,9 @@ class SpaceIQBookingPage(BasePage):
                         return desk_code
                     else:
                         print(f"       [WARNING] Popup shows different desk, trying next priority...")
-                        await self.page.keyboard.press('Escape')
-                        await asyncio.sleep(0.5)
+                        if logger:
+                            logger.warning(f"Popup shows different desk (expected {desk_code}), closing and trying next")
+                        await self.close_popup(logger=logger)
                         continue
             else:
                 # Log when we skip a desk because CV didn't detect it
@@ -712,8 +702,9 @@ class SpaceIQBookingPage(BasePage):
                                     return True
                                 else:
                                     # Wrong desk, close and continue
-                                    await self.page.keyboard.press('Escape')
-                                    await asyncio.sleep(0.5)
+                                    if logger:
+                                        logger.warning(f"Clicked wrong desk at ({x}, {y}), expected {desk_id}")
+                                    await self.close_popup(logger=logger)
                         except Exception as e:
                             msg = f"Could not click at coordinates: {e}"
                             if logger:
@@ -753,8 +744,9 @@ class SpaceIQBookingPage(BasePage):
                                         return True
                                     else:
                                         # Wrong desk, close and continue
-                                        await self.page.keyboard.press('Escape')
-                                        await asyncio.sleep(0.5)
+                                        if logger:
+                                            logger.warning(f"Clicked wrong desk, expected {desk_id}")
+                                        await self.close_popup(logger=logger)
                         except Exception as e:
                             msg = f"Could not click via SVG coordinates: {e}"
                             if logger:
@@ -787,8 +779,9 @@ class SpaceIQBookingPage(BasePage):
                                     await self.capture_screenshot(f"desk_{desk_id}_popup")
                                     return True
                                 else:
-                                    await self.page.keyboard.press('Escape')
-                                    await asyncio.sleep(0.5)
+                                    if logger:
+                                        logger.warning(f"Clicked wrong desk, expected {desk_id}")
+                                    await self.close_popup(logger=logger)
                         except Exception as e:
                             msg = f"Could not click HTML label: {e}"
                             if logger:
@@ -830,8 +823,9 @@ class SpaceIQBookingPage(BasePage):
                                         return True
                                     else:
                                         # Wrong desk, close and continue
-                                        await self.page.keyboard.press('Escape')
-                                        await asyncio.sleep(0.3)
+                                        if logger:
+                                            logger.warning(f"Clicked wrong desk, expected {desk_id}")
+                                        await self.close_popup(logger=logger)
                             except:
                                 # Click failed, skip this button
                                 continue
