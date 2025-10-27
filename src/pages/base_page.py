@@ -36,9 +36,10 @@ class BasePage:
             url: Full URL to navigate to. If None, uses Config.SPACEIQ_URL
         """
         target_url = url or Config.SPACEIQ_URL
-        print(f"       Navigating to: {target_url}")
+        # Verbose output suppressed - using pretty output in workflow
+        # print(f"       Navigating to: {target_url}")
         await self.page.goto(target_url, wait_until="domcontentloaded")
-        print(f"       Page loaded")
+        # print(f"       Page loaded")
 
     # ============================================================================
     # TIER 1: User-Facing Selectors (Preferred)
@@ -152,9 +153,10 @@ class BasePage:
             description: Human-readable description for logging
         """
         try:
-            print(f"       Clicking {description}...")
+            # Verbose output suppressed - using pretty output in workflow
+            # print(f"       Clicking {description}...")
             await locator.click()
-            print(f"       Clicked {description}")
+            # print(f"       Clicked {description}")
         except PlaywrightTimeoutError:
             await self.capture_screenshot(f"click_failed_{description}")
             raise Exception(f"Failed to click {description} - element not found or not clickable")
@@ -169,9 +171,10 @@ class BasePage:
             description: Human-readable description for logging
         """
         try:
-            print(f"       Filling {description} with: {value}")
+            # Verbose output suppressed - using pretty output in workflow
+            # print(f"       Filling {description} with: {value}")
             await locator.fill(value)
-            print(f"       Filled {description}")
+            # print(f"       Filled {description}")
         except PlaywrightTimeoutError:
             await self.capture_screenshot(f"fill_failed_{description}")
             raise Exception(f"Failed to fill {description} - element not found or not editable")
@@ -186,9 +189,10 @@ class BasePage:
             description: Human-readable description for logging
         """
         try:
-            print(f"       Selecting '{value}' from {description}...")
+            # Verbose output suppressed - using pretty output in workflow
+            # print(f"       Selecting '{value}' from {description}...")
             await locator.select_option(value)
-            print(f"       Selected option")
+            # print(f"       Selected option")
         except PlaywrightTimeoutError:
             await self.capture_screenshot(f"select_failed_{description}")
             raise Exception(f"Failed to select from {description} - element not found")
@@ -203,9 +207,10 @@ class BasePage:
             description: Human-readable description for logging
         """
         try:
-            print(f"       Waiting for {description} to be {state}...")
+            # Verbose output suppressed - using pretty output in workflow
+            # print(f"       Waiting for {description} to be {state}...")
             await locator.wait_for(state=state)
-            print(f"       {description} is {state}")
+            # print(f"       {description} is {state}")
         except PlaywrightTimeoutError:
             await self.capture_screenshot(f"wait_failed_{description}")
             raise Exception(f"Timeout waiting for {description} to be {state}")
@@ -253,7 +258,8 @@ class BasePage:
         filepath = Config.SCREENSHOTS_DIR / filename
 
         await self.page.screenshot(path=str(filepath), full_page=True)
-        print(f"   📸 Screenshot saved: {filepath}")
+        # Verbose output suppressed - screenshot saved silently for debugging
+        # print(f"   📸 Screenshot saved: {filepath}")
 
     async def get_page_title(self) -> str:
         """Get current page title"""

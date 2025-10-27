@@ -76,7 +76,8 @@ class SpaceIQBookingPage(BasePage):
         # Check if redirected to login page
         await self.check_and_wait_for_login(f"/finder/building/{building}/floor/{floor}")
 
-        print(f"       Navigated to Building {building}, Floor {floor}")
+        # Verbose output suppressed - using pretty output in workflow
+        # print(f"       Navigated to Building {building}, Floor {floor}")
 
     async def click_book_desk_button(self):
         """
@@ -147,7 +148,8 @@ class SpaceIQBookingPage(BasePage):
 
         aria_label = f"{weekday_str} {month_str} {day_str} {year_str}"
 
-        print(f"       Looking for date: {aria_label}")
+        # Verbose output suppressed - using pretty output in workflow
+        # print(f"       Looking for date: {aria_label}")
 
         # Find calendar cell by role and aria-label
         # IMPORTANT: Filter out disabled dates (aria-disabled="true")
@@ -161,19 +163,19 @@ class SpaceIQBookingPage(BasePage):
             f'div[role="gridcell"][aria-label="{aria_label}"][aria-disabled="true"]'
         )
         if await disabled_cell.count() > 0:
-            print(f"       [WARNING] Date {aria_label} is disabled (beyond booking window)")
+            # print(f"       [WARNING] Date {aria_label} is disabled (beyond booking window)")
             raise Exception(f"Date {aria_label} is disabled/grayed out - beyond booking window")
 
         # Alternative: Partial match if exact doesn't work
         if await date_cell.count() == 0:
-            print(f"       Trying partial match...")
+            # print(f"       Trying partial match...")
             date_cell = self.page.locator(
                 f'div[role="gridcell"][aria-label*="{month_str} {day_str}"][aria-disabled="false"]'
             )
 
         # Fallback: Find by day number and class (exclude disabled)
         if await date_cell.count() == 0:
-            print(f"       Trying by day number: {day_str}")
+            # print(f"       Trying by day number: {day_str}")
             date_cell = self.page.locator(
                 f'div.HotelingCalendar---day:has-text("{day_str}"):not(.HotelingCalendar---disabled)'
             )
@@ -218,7 +220,8 @@ class SpaceIQBookingPage(BasePage):
 
         # Additional wait for any overlays/circles to render
         await asyncio.sleep(1)
-        print("       Floor map loaded with availability circles")
+        # Verbose output suppressed - using pretty output in workflow
+        # print("       Floor map loaded with availability circles")
 
     async def get_available_desks_from_sidebar(self, desk_prefix: str, logger=None) -> list:
         """
@@ -271,10 +274,12 @@ class SpaceIQBookingPage(BasePage):
                 if logger:
                     logger.info(msg)
         except FileNotFoundError:
-            print(f"       [WARNING] locked_desks.json not found, using empty list")
+            # Verbose output suppressed - using empty list silently
+            # print(f"       [WARNING] locked_desks.json not found, using empty list")
             permanent_desks = []
         except Exception as e:
-            print(f"       [WARNING] Error loading locked desks config: {e}")
+            # Verbose output suppressed
+            # print(f"       [WARNING] Error loading locked desks config: {e}")
             permanent_desks = []
 
         # Calculate available = all - booked - permanent
@@ -284,7 +289,8 @@ class SpaceIQBookingPage(BasePage):
         ]
 
         msg = f"Found {len(available_desks)} available desks: {available_desks}"
-        print(f"       {msg}")
+        # Verbose output suppressed - using pretty output in workflow
+        # print(f"       {msg}")
         if logger:
             logger.info(msg)
 
@@ -352,17 +358,17 @@ class SpaceIQBookingPage(BasePage):
         use_cache = cache.is_available() and cache.validate_viewport(viewport_size)
 
         if use_cache:
-            print(f"       ⚡ Using cached desk positions (fast mode)")
+            # print(f"       ⚡ Using cached desk positions (fast mode)")
             if logger:
                 cache_info = cache.get_cache_info()
                 logger.info(f"Using position cache - {cache_info['total_desks']} desks cached from {cache_info['mapping_date']}")
         else:
             if cache.is_available():
-                print(f"       ⚠️  Cache viewport mismatch, using discovery mode")
+                # print(f"       ⚠️  Cache viewport mismatch, using discovery mode")
                 if logger:
                     logger.warning(f"Viewport mismatch: cache {cache.get_cache_info()['viewport']} vs current {viewport_size}")
             else:
-                print(f"       ℹ️  No position cache, using discovery mode (run map_desk_positions.py to build cache)")
+                # print(f"       ℹ️  No position cache, using discovery mode (run map_desk_positions.py to build cache)")
                 if logger:
                     logger.info("No position cache available - using click-all-circles discovery mode")
 
@@ -374,11 +380,11 @@ class SpaceIQBookingPage(BasePage):
         )
 
         if not screenshot_files:
-            print("       [FAILED] No floor map screenshot found")
+            # print("       [FAILED] No floor map screenshot found")
             return None
 
         screenshot_path = str(screenshot_files[0])
-        print(f"       Analyzing screenshot: {screenshot_path}")
+        # print(f"       Analyzing screenshot: {screenshot_path}")
         if logger:
             logger.info(f"Using screenshot: {screenshot_path}")
 
@@ -386,12 +392,12 @@ class SpaceIQBookingPage(BasePage):
         circles = self.desk_detector.find_blue_circles(screenshot_path, debug=True)
 
         if not circles:
-            print(f"       [FAILED] No blue circles detected")
+            # print(f"       [FAILED] No blue circles detected")
             if logger:
                 logger.error("CV Detection failed: No blue circles found in screenshot")
             return None
 
-        print(f"       Found {len(circles)} blue circles")
+        # print(f"       Found {len(circles)} blue circles")
         if logger:
             logger.info(f"CV Detection - Found {len(circles)} blue circles at coordinates: {circles}")
 
@@ -400,24 +406,24 @@ class SpaceIQBookingPage(BasePage):
 
         # Fast path: Use cache if available
         if use_cache:
-            print(f"       PHASE 1: Looking up desk codes from cache... ⚡")
+            # print(f"       PHASE 1: Looking up desk codes from cache... ⚡")
             desk_to_coords = cache.lookup_desks_from_circles(circles, tolerance=10)
 
             if logger:
                 logger.info(f"Cache lookup - Identified {len(desk_to_coords)} desks: {list(desk_to_coords.keys())}")
 
-            print(f"       ✓ Identified {len(desk_to_coords)} desks instantly from cache")
+            # print(f"       ✓ Identified {len(desk_to_coords)} desks instantly from cache")
 
             # Log any circles that weren't in cache
             if len(desk_to_coords) < len(circles):
                 unknown_count = len(circles) - len(desk_to_coords)
-                print(f"       ℹ️  {unknown_count} circle(s) not in cache (may be new desks)")
+                # print(f"       ℹ️  {unknown_count} circle(s) not in cache (may be new desks)")
                 if logger:
                     logger.info(f"Found {unknown_count} circles not in cache - these may be newly added desks")
 
         # Slow path: Click all circles to identify desks
         else:
-            print(f"       PHASE 1: Identifying all blue circle desks...")
+            # print(f"       PHASE 1: Identifying all blue circle desks...")
 
             for i, (x, y) in enumerate(circles, 1):
                 try:
@@ -440,7 +446,7 @@ class SpaceIQBookingPage(BasePage):
                         await popup.wait_for(state='visible', timeout=3000)
                     except Exception as popup_error:
                         msg = f"No popup appeared for circle at ({x}, {y})"
-                        print(f"       → {msg}")
+                        # print(f"       → {msg}")
                         if logger:
                             logger.warning(f"{msg}: {popup_error}")
                         continue
@@ -450,7 +456,7 @@ class SpaceIQBookingPage(BasePage):
                         popup_text = await popup.text_content()
                     except Exception as text_error:
                         msg = f"Failed to read popup text for circle at ({x}, {y})"
-                        print(f"       → {msg}")
+                        # print(f"       → {msg}")
                         if logger:
                             logger.warning(f"{msg}: {text_error}")
                         continue
@@ -464,7 +470,7 @@ class SpaceIQBookingPage(BasePage):
                         match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
                         if match:
                             desk_code = match.group(1)
-                            print(f"       → Identified: {desk_code}")
+                            # print(f"       → Identified: {desk_code}")
 
                             if logger:
                                 logger.info(f"Extracted desk code '{desk_code}' from circle at ({x}, {y})")
@@ -482,7 +488,7 @@ class SpaceIQBookingPage(BasePage):
                                 pass  # Continue even if wait times out
                         else:
                             msg = f"Could not extract desk code from popup text: '{popup_text}'"
-                            print(f"       → {msg}")
+                            # print(f"       → {msg}")
                             if logger:
                                 logger.warning(msg)
 
@@ -497,16 +503,16 @@ class SpaceIQBookingPage(BasePage):
 
                 except Exception as e:
                     msg = f"Error checking circle {i}: {e}"
-                    print(f"       {msg}")
+                    # print(f"       {msg}")
                     if logger:
                         logger.error(msg)
                     continue
 
-        print(f"       Identified {len(desk_to_coords)} desks from blue circles")
+        # print(f"       Identified {len(desk_to_coords)} desks from blue circles")
         if logger:
             logger.info(f"CV Detection - Identified desks: {list(desk_to_coords.keys())}")
 
-        print(f"       PHASE 2: Booking highest priority available desk...")
+        # print(f"       PHASE 2: Booking highest priority available desk...")
         if logger:
             logger.info(f"PHASE 2 - Available desks (priority order): {available_desks}")
             logger.info(f"PHASE 2 - Detected desks (from CV): {list(desk_to_coords.keys())}")
@@ -517,13 +523,13 @@ class SpaceIQBookingPage(BasePage):
                 x, y = desk_to_coords[desk_code]
                 priority_pos = available_desks.index(desk_code) + 1
                 msg = f"Found highest priority desk: {desk_code} (Priority position: {priority_pos}/{len(available_desks)})"
-                print(f"       [PRIORITY] {msg}")
+                # print(f"       [PRIORITY] {msg}")
                 if logger:
                     logger.info(f"PRIORITY MATCH - Desk: {desk_code}, Priority Position: {priority_pos}, Coordinates: ({x}, {y})")
                     logger.info(f"This is the FIRST match in priority order - booking this desk")
 
                 # Click this desk to book it
-                print(f"       Clicking to book {desk_code} at ({x}, {y})...")
+                # print(f"       Clicking to book {desk_code} at ({x}, {y})...")
                 await self.page.mouse.click(x, y)
                 await asyncio.sleep(1.5)
 
@@ -533,12 +539,12 @@ class SpaceIQBookingPage(BasePage):
                     popup_text = await popup.first.text_content()
                     if desk_code in popup_text:
                         msg = f"Successfully selected highest priority desk {desk_code}!"
-                        print(f"       [SUCCESS] {msg}")
+                        # print(f"       [SUCCESS] {msg}")
                         if logger:
                             logger.info(msg)
                         return desk_code
                     else:
-                        print(f"       [WARNING] Popup shows different desk, trying next priority...")
+                        # print(f"       [WARNING] Popup shows different desk, trying next priority...")
                         if logger:
                             logger.warning(f"Popup shows different desk (expected {desk_code}), closing and trying next")
                         await self.close_popup(logger=logger)
@@ -550,9 +556,9 @@ class SpaceIQBookingPage(BasePage):
                     logger.info(f"Skipping desk {desk_code} (Priority position: {priority_pos}) - CV did not detect this desk")
                 continue
 
-        print(f"       [FAILED] None of the blue circles matched available desks")
-        print(f"       Available: {available_desks}")
-        print(f"       Detected: {list(desk_to_coords.keys())}")
+        # print(f"       [FAILED] None of the blue circles matched available desks")
+        # print(f"       Available: {available_desks}")
+        # print(f"       Detected: {list(desk_to_coords.keys())}")
         if logger:
             logger.error(f"NO MATCH - Available desks (priority order): {available_desks}")
             logger.error(f"NO MATCH - Detected blue circles: {list(desk_to_coords.keys())}")
@@ -648,7 +654,6 @@ class SpaceIQBookingPage(BasePage):
         entry_count = await sidebar_entries.count()
 
         msg = f"Found {entry_count} booking entries in sidebar"
-        print(f"   {msg}")
         if logger:
             logger.info(msg)
 
@@ -665,8 +670,7 @@ class SpaceIQBookingPage(BasePage):
             except:
                 continue
 
-        msg = f"Found {len(booked_desks)} booked desks in sidebar"
-        print(f"   {msg}")
+        msg = f"Found {len(booked_desks)} booked desks"
         if logger:
             logger.info(msg)
 
@@ -739,7 +743,7 @@ class SpaceIQBookingPage(BasePage):
                                 popup_text = await popup.first.text_content()
                                 if desk_id in popup_text:
                                     msg = f"Successfully clicked desk {desk_id} via coordinates!"
-                                    print(f"       [SUCCESS] {msg}")
+                                    # print(f"       [SUCCESS] {msg}")
                                     if logger:
                                         logger.info(msg)
                                     await self.capture_screenshot(f"desk_{desk_id}_popup")
@@ -1040,14 +1044,14 @@ class SpaceIQBookingPage(BasePage):
             if await element.count() > 0:
                 await self.wait_for_element(element, 'visible', 'Success message')
                 success_text = await element.text_content()
-                print(f"       [SUCCESS] {success_text}")
+                # print(f"       [SUCCESS] {success_text}")
                 return True
 
         # Strategy 2: Check if popup closed (might indicate success)
         popup_title = self.page.locator('text=/Hoteling Desk/')
         try:
             await popup_title.wait_for(state='hidden', timeout=5000)
-            print("       [SUCCESS] Popup closed (likely successful)")
+            # print("       [SUCCESS] Popup closed (likely successful)")
             return True
         except:
             pass
@@ -1081,6 +1085,106 @@ class SpaceIQBookingPage(BasePage):
             info['department'] = await dept.text_content()
 
         return info
+
+    async def get_existing_bookings(self, logger=None) -> List[str]:
+        """
+        Fetch existing bookings from 'My Bookings' modal.
+
+        Returns:
+            List of dates (YYYY-MM-DD format) that are already booked
+        """
+        existing_bookings = []
+
+        try:
+            # Click on the user menu (Felipe Vargas)
+            # print("       Fetching existing bookings...")
+            user_menu = self.page.locator('.Navbar---menuToggle')
+            await user_menu.click()
+            await asyncio.sleep(0.5)
+
+            # Click on "My Bookings"
+            my_bookings_btn = self.page.locator('#my_bookings_button')
+            await my_bookings_btn.click()
+            await asyncio.sleep(1)
+
+            # Wait for modal to appear
+            modal = self.page.locator('.modal-content')
+            await modal.wait_for(state='visible', timeout=5000)
+
+            # Parse ONLY the "Upcoming Bookings" tab (the active one)
+            # Both tabs exist in DOM, but only one is active (has "active in" classes)
+            # Select only rows from the active tab pane
+            upcoming_pane = self.page.locator('#bookings-pane-upcoming\\ bookings')
+            rows = upcoming_pane.locator('.UITable---row')  # This selector already excludes header
+            row_count = await rows.count()
+
+            # No need to skip header - .UITable---row excludes .UITable---headerRow
+            # print(f"       DEBUG: Found {row_count} data rows in Upcoming Bookings table")
+            for i in range(0, row_count):  # Start at 0, not 1!
+                try:
+                    # Get the first cell which contains the date
+                    date_cell = rows.nth(i).locator('.UITable---cell').first
+                    date_text = await date_cell.text_content()
+
+                    # Parse date like "Oct 29, 2025" to "2025-10-29"
+                    # Remove extra whitespace
+                    date_text = date_text.strip()
+                    # print(f"       DEBUG: Row {i} date text: '{date_text}'")
+
+                    # Convert to YYYY-MM-DD format
+                    from datetime import datetime
+                    try:
+                        parsed_date = datetime.strptime(date_text, '%b %d, %Y')
+                        date_str = parsed_date.strftime('%Y-%m-%d')
+
+                        # Only add if not already in list (avoid duplicates)
+                        if date_str not in existing_bookings:
+                            existing_bookings.append(date_str)
+                            # print(f"       DEBUG: Found existing booking: {date_str}")
+                            if logger:
+                                logger.info(f"Existing booking found: {date_str}")
+                    except ValueError as ve:
+                        # Skip if date parsing fails
+                        # print(f"       DEBUG: Could not parse date '{date_text}': {ve}")
+                        if logger:
+                            logger.warning(f"Could not parse date: {date_text}")
+                        continue
+
+                except Exception as e:
+                    if logger:
+                        logger.warning(f"Error parsing booking row {i}: {e}")
+                    continue
+
+            # Close the modal - use more specific selector in the modal footer
+            close_btn = self.page.locator('.modal-footer button:has-text("Close")')
+            await close_btn.click(timeout=3000)
+            await asyncio.sleep(0.5)
+
+            # print(f"       Found {len(existing_bookings)} existing booking(s)")
+            if logger:
+                logger.info(f"Total existing bookings: {len(existing_bookings)} - {existing_bookings}")
+
+        except Exception as e:
+            msg = f"Error fetching existing bookings: {e}"
+            # print(f"       [WARNING] {msg}")
+            if logger:
+                logger.warning(msg)
+
+            # Try to close any open modals
+            try:
+                close_btn = self.page.locator('.modal-footer button:has-text("Close")')
+                if await close_btn.count() > 0:
+                    await close_btn.click(timeout=3000)
+                    await asyncio.sleep(0.5)
+            except:
+                # If close button fails, try pressing Escape key
+                try:
+                    await self.page.keyboard.press('Escape')
+                    await asyncio.sleep(0.5)
+                except:
+                    pass
+
+        return existing_bookings
 
 
 # Import Config for URL construction

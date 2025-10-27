@@ -7,9 +7,12 @@ Successfully booked dates are automatically removed from the config file.
 Usage:
     python multi_date_book.py                              # Manual mode: uses dates from config
     python multi_date_book.py --auto                       # Auto mode: generates Wed/Thu dates
-    python multi_date_book.py --auto --headless            # Auto mode + headless (no browser window)
+    python multi_date_book.py --auto --headless            # PRODUCTION MODE: headless + continuous loop + skip booked
     python multi_date_book.py --auto --unattended          # Auto mode: no prompts (for scheduled runs)
-    python multi_date_book.py --auto --headless --poll     # Auto + headless + polling mode
+    python multi_date_book.py --loop                       # Continuous loop mode (non-headless)
+    python multi_date_book.py --poll                       # Polling mode (try until one succeeds)
+
+Note: Headless mode automatically enables continuous loop and checks existing bookings.
 """
 
 import asyncio
@@ -69,9 +72,8 @@ def update_config_with_auto_dates(dates: list[str]):
     Args:
         dates: List of date strings for reference
     """
-    print(f"\n[AUTO MODE] Calculated {len(dates)} Wed/Thu dates for next 29 days")
-    print(f"[AUTO MODE] Bot will try ALL these dates (ignoring config status)")
-    print(f"[AUTO MODE] This ensures dates are actually booked, not just marked as booked\n")
+    # Verbose output suppressed - dates are shown by pretty_output module
+    pass
 
 
 async def main():
@@ -89,72 +91,37 @@ async def main():
     auto_mode = "--auto" in sys.argv or "-auto" in sys.argv
     unattended = "--unattended" in sys.argv or "-unattended" in sys.argv
     polling_mode = "--poll" in sys.argv or "-poll" in sys.argv
+    continuous_loop = "--loop" in sys.argv or "-loop" in sys.argv
     headless = "--headless" in sys.argv or "-headless" in sys.argv
 
     if auto_mode:
-        print("\n" + "=" * 70)
-        print("         AUTO MODE: Generating Wed/Thu Dates")
-        print("=" * 70)
-        print("\nCalculating dates for next 4 weeks + 1 day (29 days)...")
-        print("Only Wednesdays and Thursdays will be included.")
-        print("Booking from furthest date first (most available).")
-        print("=" * 70 + "\n")
-
-        # Generate dates
+        # Verbose startup output suppressed - using clean pretty output
+        # Generate dates silently
         dates = generate_wednesday_thursday_dates(weeks_ahead=4, extra_days=1)
-
-        print(f"Wed/Thu dates in next 29 days (furthest to closest):")
-        for i, date in enumerate(dates[:5], 1):
-            day_name = datetime.strptime(date, "%Y-%m-%d").strftime("%A")
-            print(f"  {i}. {date} ({day_name})")
-        if len(dates) > 5:
-            print(f"  ... and {len(dates) - 5} more")
-
-        # Show info
         update_config_with_auto_dates(dates)
 
         if not unattended:
             input("\nPress Enter to start booking (or Ctrl+C to cancel)...")
-        else:
-            print("\n[UNATTENDED MODE] Starting booking automatically...\n")
-    else:
-        print("\nTip: Edit config/booking_config.json to add/remove dates to book.")
-        print("     Or use --auto flag to generate Wed/Thu dates automatically.")
-        print("     Successfully booked dates will be automatically removed.\n")
+    # else:
+        # Manual mode tips suppressed - pretty output shows everything needed
 
-    # Run workflow with config from booking_config.json
-    if headless:
-        print("\n" + "=" * 70)
-        print("         HEADLESS MODE ENABLED")
-        print("=" * 70)
-        print("\nBot will run in background (no browser window)")
-        print("=" * 70 + "\n")
-
-    if polling_mode:
-        print("\n" + "=" * 70)
-        print("         POLLING MODE ENABLED")
-        print("=" * 70)
-        print("\nBot will keep trying all dates until at least one is booked.")
-        print("People cancel bookings, so seats may open up!")
-        print("Press Ctrl+C to stop.")
-        print("=" * 70 + "\n")
+    # Mode banners are now shown by the pretty output module
+    # All verbose startup output suppressed
 
     results = await run_multi_date_booking(
         refresh_interval=30,  # Wait 30s between retries
         max_attempts_per_date=10,  # Try each date up to 10 times
         polling_mode=polling_mode,  # Keep trying until seats found
-        headless=headless  # Run without browser window
+        headless=headless,  # Run without browser window
+        continuous_loop=continuous_loop  # Keep trying forever
     )
 
-    # Exit with appropriate code
+    # Exit with appropriate code (summary already shown by pretty output)
     if results and all(results.values()):
-        print("\n[SUCCESS] All dates booked successfully!")
         exit(0)
     elif results:
-        print("\n[PARTIAL] Some dates could not be booked")
         exit(1)
     else:
-        print("\n[FAILED] No dates were booked")
         exit(1)
 
 

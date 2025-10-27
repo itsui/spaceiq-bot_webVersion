@@ -40,7 +40,7 @@ class SessionManager:
                 f"    python src/auth/capture_session.py\n"
             )
 
-        print(f"[INFO] Initializing authenticated browser session...")
+        # print(f"[INFO] Initializing authenticated browser session...")
 
         # Launch Playwright
         self.playwright = await async_playwright().start()
@@ -53,7 +53,7 @@ class SessionManager:
             ]
         )
 
-        print(f"[INFO] Browser launched")
+        # print(f"[INFO] Browser launched")
 
         # Create context with saved authentication state
         self.context = await self.browser.new_context(
@@ -65,8 +65,8 @@ class SessionManager:
         # Set default timeout
         self.context.set_default_timeout(Config.TIMEOUT)
 
-        print(f"[INFO] Authenticated context created")
-        print(f"       Session file: {Config.AUTH_STATE_FILE}")
+        # print(f"[INFO] Authenticated context created")
+        # print(f"       Session file: {Config.AUTH_STATE_FILE}")
 
         return self.context
 

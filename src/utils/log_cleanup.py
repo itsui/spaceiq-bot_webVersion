@@ -41,7 +41,8 @@ def cleanup_old_logs(logs_dir: Path = None, keep_sessions: int = 2, logger=None)
 
     if not log_files:
         msg = "No log files to clean up"
-        print(f"[CLEANUP] {msg}")
+        # Verbose output suppressed
+        # print(f"[CLEANUP] {msg}")
         if logger:
             logger.info(msg)
         return
@@ -62,7 +63,8 @@ def cleanup_old_logs(logs_dir: Path = None, keep_sessions: int = 2, logger=None)
 
     if not sessions_to_delete:
         msg = f"All log files are from recent sessions (keeping {len(sessions_to_keep)} session(s))"
-        print(f"[CLEANUP] {msg}")
+        # Verbose output suppressed
+        # print(f"[CLEANUP] {msg}")
         if logger:
             logger.info(msg)
         return
@@ -76,14 +78,16 @@ def cleanup_old_logs(logs_dir: Path = None, keep_sessions: int = 2, logger=None)
                 deleted_count += 1
             except Exception as e:
                 msg = f"Failed to delete {file.name}: {e}"
-                print(f"[CLEANUP] {msg}")
+                # Verbose output suppressed
+                # print(f"[CLEANUP] {msg}")
                 if logger:
                     logger.warning(msg)
 
     # Summary
     kept_count = sum(len(sessions[ts]) for ts in sessions_to_keep)
     msg = f"Deleted {deleted_count} old log file(s) from {len(sessions_to_delete)} session(s), kept {kept_count} from {len(sessions_to_keep)} recent session(s)"
-    print(f"[CLEANUP] {msg}")
+    # Verbose output suppressed
+    # print(f"[CLEANUP] {msg}")
     if logger:
         logger.info(msg)
 

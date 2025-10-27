@@ -37,7 +37,7 @@ async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bo
         return await _run_session_warmer(headless=False, force_headless=force_headless)
 
     # Try to validate existing session
-    print("[INFO] Validating session...")
+    # print("[INFO] Validating session...")
 
     try:
         async with async_playwright() as p:
@@ -73,7 +73,7 @@ async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bo
                 else:
                     # Session is valid!
                     await browser.close()
-                    print("[SUCCESS] Session is valid")
+                    # print("[SUCCESS] Session is valid")
                     return (True, force_headless)
 
             except Exception as e:

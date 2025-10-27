@@ -62,7 +62,8 @@ def start_console_logging():
     console_logger = ConsoleLogger(log_file)
     sys.stdout = console_logger
 
-    print(f"\n[LOGGING] All output is being saved to: {log_file}\n")
+    # Verbose output suppressed - logging happens silently
+    # print(f"\n[LOGGING] All output is being saved to: {log_file}\n")
 
     return log_file, console_logger
 

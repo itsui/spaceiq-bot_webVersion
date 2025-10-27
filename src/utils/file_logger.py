@@ -43,15 +43,12 @@ def setup_file_logger(name: str = "spaceiq_bot") -> logging.Logger:
     )
     file_handler.setFormatter(file_formatter)
 
-    # Console handler (less verbose)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(message)s')
-    console_handler.setFormatter(console_formatter)
+    # NO console handler - all user-facing output goes through pretty_output module
+    # Logger writes ONLY to file for debugging
 
     logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
 
+    # Log to file only (not console)
     logger.info(f"Logging to: {log_file}")
 
     return logger, log_file

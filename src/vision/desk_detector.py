@@ -34,7 +34,7 @@ class DeskDetector:
             print(f"[ERROR] Could not read screenshot: {screenshot_path}")
             return []
 
-        print(f"       Image size: {img.shape[1]}x{img.shape[0]}")
+        # print(f"       Image size: {img.shape[1]}x{img.shape[0]}")
 
         # Convert to HSV color space
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -45,7 +45,7 @@ class DeskDetector:
         # Find contours
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        print(f"       Found {len(contours)} blue regions")
+        # print(f"       Found {len(contours)} blue regions")
 
         # Extract circle centers
         circles = []
@@ -65,13 +65,13 @@ class DeskDetector:
                     if debug:
                         cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1)
 
-        print(f"       Detected {len(circles)} blue circles")
+        # print(f"       Detected {len(circles)} blue circles")
 
         # Save debug image if requested
         if debug:
             debug_path = screenshot_path.replace('.png', '_debug.png')
             cv2.imwrite(debug_path, img)
-            print(f"       Saved debug image: {debug_path}")
+            # print(f"       Saved debug image: {debug_path}")
 
         return circles
 

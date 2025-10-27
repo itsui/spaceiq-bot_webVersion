@@ -47,7 +47,8 @@ def cleanup_old_screenshots(screenshots_dir: Path = None, keep_sessions: int = 2
 
     if not automated_screenshots:
         msg = "No automated screenshots to clean up"
-        print(f"[CLEANUP] {msg}")
+        # Verbose output suppressed
+        # print(f"[CLEANUP] {msg}")
         if logger:
             logger.info(msg)
         return
@@ -68,7 +69,8 @@ def cleanup_old_screenshots(screenshots_dir: Path = None, keep_sessions: int = 2
 
     if not sessions_to_delete:
         msg = f"All screenshots are from recent sessions (keeping {len(sessions_to_keep)} session(s))"
-        print(f"[CLEANUP] {msg}")
+        # Verbose output suppressed
+        # print(f"[CLEANUP] {msg}")
         if logger:
             logger.info(msg)
         return
@@ -82,14 +84,16 @@ def cleanup_old_screenshots(screenshots_dir: Path = None, keep_sessions: int = 2
                 deleted_count += 1
             except Exception as e:
                 msg = f"Failed to delete {file.name}: {e}"
-                print(f"[CLEANUP] {msg}")
+                # Verbose output suppressed
+                # print(f"[CLEANUP] {msg}")
                 if logger:
                     logger.warning(msg)
 
     # Summary
     kept_count = sum(len(sessions[ts]) for ts in sessions_to_keep)
     msg = f"Deleted {deleted_count} old screenshot(s) from {len(sessions_to_delete)} session(s), kept {kept_count} from {len(sessions_to_keep)} recent session(s)"
-    print(f"[CLEANUP] {msg}")
+    # Verbose output suppressed
+    # print(f"[CLEANUP] {msg}")
     if logger:
         logger.info(msg)
 
