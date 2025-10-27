@@ -157,7 +157,7 @@ async def map_desk_positions():
         print("=" * 70 + "\n")
 
         # Detect blue circles using CV
-        from src.utils.desk_detector import DeskDetector
+        from src.vision.desk_detector import DeskDetector
         import os
 
         detector = DeskDetector()
