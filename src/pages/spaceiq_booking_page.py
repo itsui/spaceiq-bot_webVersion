@@ -402,8 +402,25 @@ class SpaceIQBookingPage(BasePage):
                         # Store coordinates for this desk
                         desk_to_coords[desk_code] = (x, y)
 
-                        # Close popup and wait for it to be fully hidden
-                        await self.page.keyboard.press('Escape')
+                        # Close popup by clicking the X button (SVG close icon)
+                        # Escape key doesn't work - need to click the close button or outside popup
+                        try:
+                            # Look for close button (SVG with X icon or parent button)
+                            close_button = self.page.locator('svg[stroke="#A4AFB7"]').first
+                            if await close_button.count() > 0:
+                                await close_button.click()
+                                if logger:
+                                    logger.info(f"Closed popup by clicking X button")
+                            else:
+                                # Fallback: Click outside popup area (top-left corner)
+                                await self.page.mouse.click(50, 50)
+                                if logger:
+                                    logger.info(f"Closed popup by clicking outside (close button not found)")
+                        except Exception as close_error:
+                            # Fallback: Click outside popup area
+                            await self.page.mouse.click(50, 50)
+                            if logger:
+                                logger.warning(f"Failed to click close button, clicked outside instead: {close_error}")
 
                         # Wait for popup to be hidden/detached from DOM
                         try:
@@ -418,8 +435,24 @@ class SpaceIQBookingPage(BasePage):
                         if logger:
                             logger.warning(msg)
 
-                        # Close popup and wait for it to be fully hidden
-                        await self.page.keyboard.press('Escape')
+                        # Close popup by clicking the X button or outside
+                        try:
+                            # Look for close button (SVG with X icon or parent button)
+                            close_button = self.page.locator('svg[stroke="#A4AFB7"]').first
+                            if await close_button.count() > 0:
+                                await close_button.click()
+                                if logger:
+                                    logger.info(f"Closed popup by clicking X button")
+                            else:
+                                # Fallback: Click outside popup area (top-left corner)
+                                await self.page.mouse.click(50, 50)
+                                if logger:
+                                    logger.info(f"Closed popup by clicking outside (close button not found)")
+                        except Exception as close_error:
+                            # Fallback: Click outside popup area
+                            await self.page.mouse.click(50, 50)
+                            if logger:
+                                logger.warning(f"Failed to click close button, clicked outside instead: {close_error}")
 
                         # Wait for popup to be hidden/detached from DOM
                         try:
