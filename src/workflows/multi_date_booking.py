@@ -16,6 +16,7 @@ from src.pages.spaceiq_booking_page import SpaceIQBookingPage
 from src.auth.session_manager import SessionManager
 from src.utils.file_logger import setup_file_logger
 from src.utils.console_logger import start_console_logging, stop_console_logging
+from src.utils.screenshot_cleanup import cleanup_old_screenshots
 
 
 class MultiDateBookingWorkflow:
@@ -47,6 +48,9 @@ class MultiDateBookingWorkflow:
 
         # Start console logging (captures ALL print statements)
         self.console_log_file, self.console_logger = start_console_logging()
+
+        # Cleanup old screenshots (keep only current and previous session)
+        cleanup_old_screenshots(keep_sessions=2, logger=self.logger)
 
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON file."""
