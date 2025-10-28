@@ -55,3 +55,7 @@ logs/
 screenshots/
 test-results/
 playwright-report/
+
+# Archived files
+_archived_scripts/
+*.har
