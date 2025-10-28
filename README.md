@@ -1,182 +1,310 @@
-# SpaceIQ Booking Bot - Phase 1
+# SpaceIQ Desk Booking Bot
 
-An AI-powered automation bot for SpaceIQ booking platform using a hybrid DOM-based and visual recognition approach.
+Automated desk booking system for SpaceIQ platform. Books desks automatically based on your preferences and schedule.
 
-## Project Structure
+## What Does This Bot Do?
 
+- **Automatically books desks** on SpaceIQ for your configured dates and preferences
+- **Smart seat selection** based on your priority preferences
+- **Continuous monitoring** for available seats (headless mode)
+- **Multi-date booking** - book multiple days at once
+- **Respects locked desks** and avoids unavailable seats
+
+---
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+1. **Python 3.8 or higher** installed on your computer
+   - Download from: https://www.python.org/downloads/
+   - During installation, check "Add Python to PATH"
+
+2. **Git** installed (to download the project)
+   - Download from: https://git-scm.com/downloads
+
+3. **SpaceIQ account** with valid credentials
+
+---
+
+## Installation
+
+### Step 1: Download the Project
+
+Open a terminal (Command Prompt on Windows, Terminal on Mac/Linux) and run:
+
+```bash
+git clone https://github.com/YOUR_USERNAME/spaceIqBotv01.git
+cd spaceIqBotv01
 ```
-spaceIqBotv01/
-├── src/
-│   ├── auth/              # Authentication modules
-│   ├── pages/             # Page Object Model classes
-│   ├── workflows/         # Booking workflow implementations
-│   └── utils/             # Helper utilities
-├── playwright/.auth/      # Authentication state (DO NOT COMMIT)
-├── config.py              # Configuration management
-└── main.py                # Main entry point
+
+### Step 2: Install Dependencies
+
+Install required Python packages:
+
+```bash
+pip install -r requirements.txt
 ```
 
-## Setup Instructions
+Install Playwright browser:
 
-### 1. Install Dependencies
+```bash
+playwright install chromium
+```
+
+**Note:** If `pip` doesn't work, try `pip3` or `python -m pip` instead.
+
+---
+
+## First-Time Setup
+
+### 1. Login and Save Your Session
+
+Before using the bot, you need to login to SpaceIQ once:
+
+**On Windows:**
+```bash
+run_session_warmer.bat
+```
+
+**On Mac/Linux:**
+```bash
+python warm_session.py
+```
+
+**What happens:**
+1. A browser window will open
+2. Login to SpaceIQ with your credentials (including 2FA if required)
+3. Once logged in, the bot will save your session
+4. You can close the browser
+
+**Important:** Your session is saved locally in `playwright/.auth/auth.json`. Keep this file private!
+
+---
+
+## Configuration
+
+### Edit Your Booking Preferences
+
+Open `config/booking_config.json` in any text editor and configure:
+
+#### 1. Building and Floor
+```json
+"building": "LC",
+"floor": "2"
+```
+Change to your building code and floor number.
+
+#### 2. Desk Area
+```json
+"desk_preferences": {
+  "prefix": "2.24"
+}
+```
+Change `"2.24"` to your preferred desk area prefix.
+
+#### 3. Seat Priorities
+```json
+"priority_ranges": [
+  {
+    "range": "2.24.01-2.24.20",
+    "priority": 1,
+    "reason": "Best area - most preferred"
+  },
+  {
+    "range": "2.24.21-2.24.40",
+    "priority": 2,
+    "reason": "Second choice"
+  }
+]
+```
+- **Priority 1** = Most preferred seats (tries these first)
+- **Priority 2** = Second choice (tries if priority 1 unavailable)
+- **Priority 3+** = Lower priorities
+
+Add as many priority ranges as you want.
+
+#### 4. Booking Days
+```json
+"booking_days": {
+  "weekdays": [2, 3]
+}
+```
+- `0` = Monday
+- `1` = Tuesday
+- `2` = Wednesday
+- `3` = Thursday
+- `4` = Friday
+
+Default is `[2, 3]` for Wednesday and Thursday.
+
+#### 5. Wait Times Between Rounds
+```json
+"wait_times": {
+  "rounds_1_to_5": { "seconds": 60 },
+  "rounds_6_to_15": { "seconds": 300 },
+  "rounds_16_plus": { "seconds": 900 }
+}
+```
+- Early rounds check every minute (aggressive)
+- Middle rounds check every 5 minutes
+- Later rounds check every 15 minutes
+
+Change these values if you want different timing.
+
+**See `config/README.md` for detailed configuration documentation.**
+
+---
+
+## How to Use
+
+### Mode 1: One-Time Booking (Visible Browser)
+
+Books desks once and shows the browser window (useful for testing).
+
+**Windows:**
+```bash
+run.bat
+```
+
+**Mac/Linux:**
+```bash
+python multi_date_book.py
+```
+
+### Mode 2: Continuous Headless Booking (Recommended)
+
+Runs continuously in the background, automatically booking available desks.
+
+**Windows:**
+```bash
+run_headless_booking.bat
+```
+
+**Mac/Linux:**
+```bash
+python multi_date_book.py --headless
+```
+
+**What it does:**
+- Checks for available desks on your configured weekdays
+- Books desks automatically when available
+- Runs 24/7 in the background
+- Uses progressive wait times (checks frequently at first, then slows down)
+
+**To stop:** Press `Ctrl+C`
+
+---
+
+## Advanced Features
+
+### Building Position Cache
+
+Speeds up desk selection by pre-caching desk positions:
+
+```bash
+build_position_cache.bat
+```
+
+This creates `config/desk_positions.json` with position data for faster booking.
+
+### Locked Desks
+
+Edit `config/locked_desks.json` to specify desks that should never be booked:
+
+```json
+{
+  "locked_desks": {
+    "2.24": [
+      "2.24.01",
+      "2.24.13"
+    ]
+  }
+}
+```
+
+---
+
+## Troubleshooting
+
+### "Session expired" or "Login required"
+
+Your session has expired. Run the session warmer again:
+
+```bash
+run_session_warmer.bat
+```
+
+### "Module not found" errors
+
+Install dependencies again:
 
 ```bash
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 2. Configure Environment
+### Bot can't find desks
 
-Copy `.env.example` to `.env` and update with your SpaceIQ URL:
+1. Check your `config/booking_config.json` settings
+2. Verify the desk prefix matches your SpaceIQ layout
+3. Make sure you're logged in (run session warmer)
 
-```bash
-cp .env.example .env
+### Headless mode isn't working
+
+1. Stop any running instances (`Ctrl+C`)
+2. Run session warmer to refresh your login
+3. Try visible mode first to see if there are any errors
+
+---
+
+## Logs and Debugging
+
+- **Logs** are saved in `logs/` folder
+- **Screenshots** are saved in `screenshots/` folder when errors occur
+- Check logs if something goes wrong
+
+---
+
+## File Structure
+
+```
+spaceIqBotv01/
+├── config/
+│   ├── booking_config.json     # Your booking preferences
+│   ├── locked_desks.json       # Desks to avoid
+│   ├── desk_positions.json     # Position cache (auto-generated)
+│   └── README.md              # Configuration documentation
+├── src/                       # Bot source code
+├── playwright/.auth/          # Your saved session (keep private!)
+├── logs/                      # Log files
+├── screenshots/               # Error screenshots
+├── run.bat                    # Run bot (Windows)
+├── run_headless_booking.bat   # Run headless mode (Windows)
+├── run_session_warmer.bat     # Login and save session (Windows)
+└── requirements.txt           # Python dependencies
 ```
 
-Edit `.env` and set your SpaceIQ instance URL.
+---
 
-### 3. First-Time Authentication (MANUAL STEP REQUIRED)
+## Security Notes
 
-The bot requires a one-time manual login to capture your authenticated session:
+- **Never commit** `playwright/.auth/auth.json` to Git (contains your session)
+- **Never share** your `auth.json` file with anyone
+- The bot only interacts with SpaceIQ - no data is sent elsewhere
+- Your credentials are never stored (only the session token)
 
-```bash
-python src/auth/capture_session.py
-```
+---
 
-**Follow these steps:**
-1. The script will provide a Chrome launch command
-2. Copy and run that command in your terminal
-3. In the opened browser, manually complete SSO/2FA login
-4. Return to the Python script and press Enter
-5. Your session will be saved to `playwright/.auth/auth.json`
+## Support
 
-### 4. Run the Bot
+For issues or questions:
+1. Check the logs in `logs/` folder
+2. Check `config/README.md` for configuration help
+3. Check other `.md` files in the project for detailed documentation
 
-After authentication is captured:
+---
 
-```bash
-python main.py
-```
+## License
 
-## Session Management
-
-- Your authentication session is stored in `playwright/.auth/auth.json`
-- This file contains sensitive session tokens and is git-ignored
-- Re-run `capture_session.py` when your session expires (typically every few days/weeks)
-
-## Features
-
-### Core Booking
-- ✅ CDP-based authentication capture
-- ✅ Persistent session management with storageState
-- ✅ Session expiration detection with manual login prompt
-- ✅ Page Object Model architecture
-- ✅ Resilient selector strategy (Role > TestId > CSS)
-
-### Advanced Features
-- ✅ **Computer Vision-based desk detection** (OpenCV blue circle detection)
-- ✅ **Multi-date booking** with automatic success tracking
-- ✅ **Auto mode** - generates Wed/Thu dates for next 4 weeks+1
-- ✅ **Smart booking order** - books furthest dates first (most available)
-- ✅ **Configurable locked desks** (via JSON)
-- ✅ **Session warming** for scheduled runs
-
-## Quick Start
-
-### Manual Booking
-```bash
-# Edit config/booking_config.json with your desired dates
-python multi_date_book.py
-```
-
-### Auto Mode (Recommended)
-Automatically generates and books all Wednesday/Thursday dates for the next 4 weeks+1:
-
-```bash
-# Interactive mode (prompts for confirmation)
-python multi_date_book.py --auto
-
-# Unattended mode (no prompts, for scheduled tasks)
-python multi_date_book.py --auto --unattended
-```
-
-### Session Warmer (For Scheduled Runs)
-Run this before scheduled booking to ensure session is fresh:
-
-```bash
-# NEW: Fully automated - no manual terminal commands needed!
-python auto_warm_session.py
-
-# Legacy method (requires manual Chrome launch in separate terminal)
-python warm_session.py
-```
-
-### Quick Booking (All-in-One)
-Automatically warm session and book in one command:
-
-```bash
-# Quick book with auto-generated Wed/Thu dates
-python quick_book.py --auto
-
-# Quick book in headless mode (no browser window)
-python quick_book.py --auto --headless
-
-# Quick book with polling (keeps trying until seats found)
-python quick_book.py --auto --poll --headless
-
-# Use existing session without warming
-python quick_book.py --auto --skip-warm --headless
-```
-
-### Headless Mode (Background Booking)
-Run booking without showing browser window:
-
-```bash
-# Add --headless flag to any booking command
-python multi_date_book.py --auto --headless
-
-# Or use the batch file
-run_headless_booking.bat
-```
-
-## Scheduling for Automatic Booking
-
-SpaceIQ allows booking **4 weeks + 1 day (29 days)** in advance.
-
-**Recommended schedule:**
-```bash
-# Option 1: All-in-one (recommended for simplicity)
-- **Tuesday 11:59 PM:** python quick_book.py --auto
-- **Wednesday 11:59 PM:** python quick_book.py --auto
-
-# Option 2: Separate warming (recommended for reliability)
-- **Tuesday 8:00 PM:** python auto_warm_session.py (warm session)
-- **Tuesday 11:59 PM:** python multi_date_book.py --auto --unattended (book Wed seats)
-- **Wednesday 11:59 PM:** python multi_date_book.py --auto --unattended (book Thu seats)
-```
-
-See [SCHEDULING.md](SCHEDULING.md) for detailed setup instructions with Windows Task Scheduler.
-
-## Configuration Files
-
-### booking_config.json
-Main booking configuration (auto-managed by bot):
-```json
-{
-  "dates_to_try": ["2024-11-21", "2024-11-20", ...],  // Pending
-  "booked_dates": ["2024-11-12", ...],                // Successful
-  "desk_preferences": {"prefix": "2.24"}
-}
-```
-
-### locked_desks.json
-Permanently unavailable desks (edit manually):
-```json
-{
-  "locked_desks": {
-    "2.24": ["2.24.01", "2.24.13", ...]
-  }
-}
-```
-
-See [config/README.md](config/README.md) for editing instructions.
+This project is for personal use only. Use at your own risk.

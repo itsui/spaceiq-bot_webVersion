@@ -1096,7 +1096,7 @@ class SpaceIQBookingPage(BasePage):
         existing_bookings = []
 
         try:
-            # Click on the user menu (Felipe Vargas)
+            # Click on the user menu (works for any logged-in user)
             # print("       Fetching existing bookings...")
             user_menu = self.page.locator('.Navbar---menuToggle')
             await user_menu.click()

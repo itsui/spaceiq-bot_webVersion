@@ -4,6 +4,11 @@ REM SpaceIQ Booking Bot - Main Menu
 REM Change to script directory
 cd /d "%~dp0"
 
+REM Maximize window if not already maximized
+if "%1" == "MAXIMIZED" goto MENU
+start "SpaceIQ Booking Bot" /MAX cmd /k "%~f0" MAXIMIZED
+goto :EOF
+
 :MENU
 cls
 echo.
@@ -65,7 +70,7 @@ echo ======================================================================
 echo          Session Warmer
 echo ======================================================================
 echo.
-python warm_session.py
+python auto_warm_session.py
 echo.
 echo ======================================================================
 echo.

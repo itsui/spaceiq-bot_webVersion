@@ -29,6 +29,7 @@ playwright/.auth/
 # EXCEPT these config files (we want to keep these):
 !config/booking_config.json
 !config/locked_desks.json
+!config/desk_positions.json
 !package.json
 
 # Environment variables
@@ -37,6 +38,7 @@ playwright/.auth/
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~

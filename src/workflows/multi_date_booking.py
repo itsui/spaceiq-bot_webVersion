@@ -18,7 +18,8 @@ from src.utils.file_logger import setup_file_logger
 from src.utils.console_logger import start_console_logging, stop_console_logging
 from src.utils.screenshot_cleanup import cleanup_old_screenshots
 from src.utils.log_cleanup import cleanup_old_logs
-from src.utils.pretty_output import PrettyOutput as pout
+from src.utils.rich_ui import ui, DateStatus
+from src.utils.sound_notification import play_booking_success_alert
 
 
 class MultiDateBookingWorkflow:
@@ -61,6 +62,46 @@ class MultiDateBookingWorkflow:
         # Cleanup old files (screenshots are large, logs are small and useful for debugging)
         cleanup_old_screenshots(keep_sessions=2, logger=self.logger)
         cleanup_old_logs(keep_sessions=10, logger=self.logger)
+
+    def get_progressive_wait_time(self, round_num: int, config: Dict[str, Any] = None) -> int:
+        """
+        Calculate wait time based on round number with progressive backoff.
+
+        Reads wait times from config file's wait_times section.
+        Default strategy if config missing:
+        - Rounds 1-5: 1 minute (60 seconds) - aggressive checking
+        - Rounds 6-15: 5 minutes (300 seconds) - moderate checking
+        - Rounds 16+: 15 minutes (900 seconds) - conservative checking
+
+        Args:
+            round_num: Current round number (1-indexed)
+            config: Configuration dictionary (loaded from booking_config.json)
+
+        Returns:
+            Wait time in seconds
+        """
+        # Load config if not provided
+        if config is None:
+            config = self.load_config()
+
+        # Get wait times from config with fallback defaults
+        wait_times = config.get("wait_times", {})
+        rounds_1_to_5 = wait_times.get("rounds_1_to_5", {}).get("seconds", 60)
+        rounds_6_to_15 = wait_times.get("rounds_6_to_15", {}).get("seconds", 300)
+        rounds_16_plus = wait_times.get("rounds_16_plus", {}).get("seconds", 900)
+
+        if round_num <= 5:
+            wait_time = rounds_1_to_5
+            self.logger.info(f"Round {round_num}: Using {wait_time}s wait (aggressive checking)")
+            return wait_time
+        elif round_num <= 15:
+            wait_time = rounds_6_to_15
+            self.logger.info(f"Round {round_num}: Using {wait_time}s wait (moderate checking)")
+            return wait_time
+        else:
+            wait_time = rounds_16_plus
+            self.logger.info(f"Round {round_num}: Using {wait_time}s wait (conservative checking)")
+            return wait_time
 
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON file."""
@@ -108,12 +149,16 @@ class MultiDateBookingWorkflow:
         today = datetime.now().date()
         furthest_date = today + timedelta(weeks=4, days=1)  # 29 days
 
+        # Get booking days from config (default to Wed=2, Thu=3)
+        booking_days_config = config.get("booking_days", {})
+        weekdays_to_book = booking_days_config.get("weekdays", [2, 3])
+
         dates_to_try = []
         current_date = today
 
         while current_date <= furthest_date:
-            # Only Wed (2) and Thu (3)
-            if current_date.weekday() in [2, 3]:
+            # Check if this weekday should be booked (from config)
+            if current_date.weekday() in weekdays_to_book:
                 # Only include dates that are not in the past
                 if current_date >= today:
                     dates_to_try.append(current_date.strftime("%Y-%m-%d"))
@@ -139,18 +184,22 @@ class MultiDateBookingWorkflow:
         self.logger.info("=" * 70)
         self.logger.info("")
 
-        pout.header("SpaceIQ Multi-Date Booking Bot")
-        pout.info(f"Target: {len(dates_to_try)} date(s) • Desk: {desk_prefix}.* • Refresh: {self.refresh_interval}s")
+        # Show initial header and info (before dashboard starts)
+        ui.print_header()
+        ui.print_info(f"Target: {len(dates_to_try)} date(s) • Desk: {desk_prefix}.* • Refresh: {self.refresh_interval}s")
 
         # Show mode banners
         if self.headless:
-            pout.mode_banner("headless")  # Headless now implies continuous loop
+            ui.print_mode_banner("headless")  # Headless now implies continuous loop
         elif self.continuous_loop:
-            pout.mode_banner("loop")
+            ui.print_mode_banner("loop")
         elif self.polling_mode:
-            pout.mode_banner("poll")
+            ui.print_mode_banner("poll")
 
         results = {}
+
+        # Initialize the dashboard with dates
+        ui.initialize_dates(dates_to_try)
 
         try:
             # Validate session first (especially important for headless mode)
@@ -176,25 +225,33 @@ class MultiDateBookingWorkflow:
             # Navigate to SpaceIQ once (needed for checking existing bookings)
             await booking_page.navigate_to_floor_view(building, floor)
 
+            # Start the live dashboard
+            import time
+            await asyncio.sleep(2)  # Let user see the initial info
+            dashboard = ui.start_live_dashboard()
+
             # Polling loop: keep trying until at least one date is booked (if polling_mode enabled)
             # Or loop indefinitely (if continuous_loop enabled)
             round_num = 1
             while True:
+                ui.current_round = round_num
                 # Check existing bookings at start of each round (skip already booked dates)
                 # Always check on first round, and every round in continuous loop mode
                 existing_bookings = []
                 if round_num == 1 or self.continuous_loop:
-                    pout.progress_inline("Checking existing bookings...")
+                    ui.set_operation("Checking existing bookings...", "Fetching calendar data")
                     try:
                         existing_bookings = await booking_page.get_existing_bookings(logger=self.logger)
-                        pout.clear_line()
-                        if existing_bookings:
-                            pout.success(f"Found {len(existing_bookings)} existing booking(s) - will skip these dates")
-                        else:
-                            pout.info("No existing bookings found")
+                        ui.set_operation("")
+
+                        # Update dashboard with existing bookings
+                        for date in existing_bookings:
+                            if date in ui.date_statuses:
+                                ui.set_date_status(date, DateStatus.ALREADY_BOOKED)
+
+                        self.logger.info(f"Found {len(existing_bookings)} existing bookings")
                     except Exception as e:
-                        pout.clear_line()
-                        pout.warning(f"Could not fetch existing bookings: {e}")
+                        ui.set_operation("")
                         self.logger.warning(f"Failed to fetch existing bookings: {e}")
 
                 # ALWAYS recalculate dates from calendar (don't trust config)
@@ -206,7 +263,8 @@ class MultiDateBookingWorkflow:
                 current_date_check = today_now
 
                 while current_date_check <= furthest_date_now:
-                    if current_date_check.weekday() in [2, 3]:
+                    # Use weekdays_to_book from config (defined earlier in generate_dates_to_try)
+                    if current_date_check.weekday() in weekdays_to_book:
                         if current_date_check >= today_now:
                             date_str = current_date_check.strftime("%Y-%m-%d")
                             # Skip if already booked
@@ -218,23 +276,31 @@ class MultiDateBookingWorkflow:
 
                 if not dates_to_try_now:
                     if existing_bookings:
-                        print("\n[INFO] All Wed/Thu dates are already booked!")
                         if self.continuous_loop:
-                            print(f"[INFO] Waiting {self.refresh_interval}s before checking again (someone may cancel)...")
-                            await asyncio.sleep(self.refresh_interval)
+                            wait_time = self.get_progressive_wait_time(round_num)
+                            ui.set_operation("All dates already booked", "Waiting for cancellations...")
+                            ui.start_countdown(wait_time, "Waiting for next round")
+
+                            # Countdown loop
+                            for _ in range(wait_time):
+                                await asyncio.sleep(1)
+                                ui.update_countdown()
+
+                            ui.stop_countdown()
                             round_num += 1
                             continue
-                    print("\n[INFO] No more future Wed/Thu dates to try.")
+                    ui.set_operation("Complete", "No more dates to try")
                     break
-
-                if (self.polling_mode or self.continuous_loop) and round_num > 1:
-                    pout.round_header(round_num, len(dates_to_try_now), len(existing_bookings))
 
                 round_results = {}
 
                 # Try each date once, move to next if no seats available
                 for idx, date_str in enumerate(dates_to_try_now, 1):
-                    pout.date_header(date_str, idx, len(dates_to_try_now))
+                    # Mark as trying
+                    attempt_num = ui.date_attempts.get(date_str, 0) + 1
+                    ui.set_date_status(date_str, DateStatus.TRYING, attempt=attempt_num)
+                    ui.set_operation(f"Booking {date_str}", f"Date {idx}/{len(dates_to_try_now)} - Attempt #{attempt_num}")
+                    ui.log_activity(f"Starting booking for {date_str} (attempt {attempt_num})")
 
                     # Parse date
                     target_date = datetime.strptime(date_str, '%Y-%m-%d')
@@ -255,14 +321,16 @@ class MultiDateBookingWorkflow:
                     results[date_str] = success
 
                     if success:
-                        pout.booking_result(date_str, True, desk_code)
+                        ui.set_date_status(date_str, DateStatus.SUCCESS, desk=desk_code)
+                        ui.log_activity(f"SUCCESS: Booked {date_str} - Desk {desk_code}")
                         self.logger.info(f"Successfully booked {date_str} ({desk_code})")
 
                         # Update config for record-keeping (but we'll still try this date again next round to verify)
                         self.remove_date_from_config(date_str)
                     else:
                         # Could be: no seats available, already booked, or date disabled
-                        pout.booking_result(date_str, False)
+                        ui.set_date_status(date_str, DateStatus.SKIPPED)
+                        ui.log_activity(f"SKIPPED: {date_str} - No available desks")
                         self.logger.info(f"No available desks for {date_str}")
 
                 # Check if we should continue polling
@@ -275,37 +343,58 @@ class MultiDateBookingWorkflow:
                 if self.continuous_loop:
                     # Continuous loop mode - keep trying all dates forever
                     if any_booked:
-                        pout.success("At least one booking successful! Continuing to next round...")
+                        ui.set_operation("Booking successful!", "Continuing to next round...")
+                        await asyncio.sleep(2)
                     else:
-                        pout.waiting(self.refresh_interval, "No available seats for any date")
-                        await asyncio.sleep(self.refresh_interval)
+                        wait_time = self.get_progressive_wait_time(round_num)
+                        ui.set_operation("Waiting for next round", "No seats available")
+                        ui.start_countdown(wait_time, "Waiting for next round")
+
+                        # Countdown loop
+                        for _ in range(wait_time):
+                            await asyncio.sleep(1)
+                            ui.update_countdown()
+
+                        ui.stop_countdown()
                     round_num += 1
                     continue
 
                 if any_booked:
                     # At least one date was booked (polling mode)
                     # Continue to next round to verify all dates again
-                    pout.success("At least one booking successful! Continuing to verify all dates...")
+                    ui.set_operation("Booking successful!", "Verifying all dates...")
+                    await asyncio.sleep(2)
                     round_num += 1
                     continue
 
                 # No dates booked this round - wait and try again (polling mode)
-                pout.waiting(self.refresh_interval, "No seats available for any date")
-                await asyncio.sleep(self.refresh_interval)
+                wait_time = self.get_progressive_wait_time(round_num)
+                ui.set_operation("Waiting for next round", "No seats available")
+                ui.start_countdown(wait_time, "Waiting for next round")
+
+                # Countdown loop
+                for _ in range(wait_time):
+                    await asyncio.sleep(1)
+                    ui.update_countdown()
+
+                ui.stop_countdown()
                 round_num += 1
 
-            # Final summary
-            pout.summary_table(results, existing_bookings if (self.continuous_loop or self.polling_mode) else None)
+            # Stop dashboard and show final summary
+            ui.stop_live_dashboard()
+            ui.print_summary_table(results, existing_bookings if (self.continuous_loop or self.polling_mode) else None)
 
             return results
 
         except Exception as e:
+            ui.stop_live_dashboard()
             print(f"\n[ERROR] Error during multi-date booking: {e}")
             import traceback
             traceback.print_exc()
             return results
 
         finally:
+            ui.stop_live_dashboard()
             await self.session_manager.close()
 
             # Stop console logging
@@ -335,7 +424,7 @@ class MultiDateBookingWorkflow:
 
         try:
             # Steps 1-6: Navigation (consolidated into single progress line)
-            pout.progress_inline(f"  Loading {date_str} floor map...")
+            ui.log_activity(f"  Loading floor map for {date_str}...")
             await booking_page.navigate_to_floor_view(building, floor)
             await booking_page.click_book_desk_button()
             await booking_page.open_date_picker()
@@ -344,8 +433,7 @@ class MultiDateBookingWorkflow:
                 await booking_page.select_date_from_calendar(days_ahead=days_ahead)
             except Exception as e:
                 if "disabled" in str(e).lower() or "beyond booking window" in str(e).lower():
-                    pout.clear_line()
-                    pout.warning(f"  Date beyond booking window")
+                    ui.log_activity(f"  {date_str} is beyond booking window")
                     self.logger.info(f"Date {date_str} is disabled - beyond booking window")
                     return False, None
                 else:
@@ -353,23 +441,23 @@ class MultiDateBookingWorkflow:
 
             await booking_page.click_update_button()
             await booking_page.wait_for_floor_map_to_load()
+            ui.log_activity(f"  Waiting for SVG to render...")
             await asyncio.sleep(7)  # Wait for SVG to render
             await booking_page.capture_screenshot("floor_map_loaded")
-            pout.clear_line()
 
             # Step 7: Check available desks
-            pout.progress_inline(f"  Checking available desks...")
+            ui.log_activity(f"  Checking available {desk_prefix}.* desks...")
             available_desks = await booking_page.get_available_desks_from_sidebar(
                 desk_prefix=desk_prefix,
                 logger=self.logger
             )
-            pout.clear_line()
 
             if not available_desks:
-                pout.info(f"  No {desk_prefix}.* desks available")
+                ui.log_activity(f"  No {desk_prefix}.* desks available")
+                self.logger.info(f"No {desk_prefix}.* desks available for {date_str}")
                 return False, None  # Skip to next date immediately
 
-            pout.info(f"  Found {len(available_desks)} desk(s): {', '.join(available_desks[:3])}{'...' if len(available_desks) > 3 else ''}")
+            ui.log_activity(f"  Found {len(available_desks)} desk(s): {', '.join(available_desks[:3])}")
             self.logger.info(f"Available desks (unsorted): {available_desks}")
 
             # Sort by priority (if configured)
@@ -387,33 +475,39 @@ class MultiDateBookingWorkflow:
                 self.logger.info("No priority configuration found - using unsorted order")
 
             # Step 8: Use CV to find and click desk
-            # pout.progress_inline(f"  Detecting and clicking desk...")
+            ui.log_activity(f"  Using CV to find desk on map...")
             found_desk = await booking_page.find_and_click_available_desks(
                 available_desks=available_desks,
                 logger=self.logger
             )
-            # pout.clear_line()
 
             if not found_desk:
-                pout.error(f"  Could not locate desk on map")
+                ui.log_activity(f"  ERROR: Could not locate desk on map")
+                self.logger.error(f"Could not locate desk on map for {date_str}")
                 return False, None
 
+            ui.log_activity(f"  Clicked desk {found_desk}, submitting booking...")
+
             # Step 9: Book the desk
-            # pout.progress_inline(f"  Booking {found_desk}...")
             await booking_page.click_book_now_in_popup()
             await asyncio.sleep(2)
             success = await booking_page.verify_booking_success()
-            # pout.clear_line()
 
             if success:
+                ui.log_activity(f"  Booking verified successfully!")
                 await booking_page.capture_screenshot(f"booking_success_{date_str}")
+
+                # Play success sound notification (especially useful in headless mode)
+                play_booking_success_alert()
+
                 return True, found_desk
             else:
-                pout.error(f"  Booking verification failed")
+                ui.log_activity(f"  ERROR: Booking verification failed")
+                self.logger.error(f"Booking verification failed for {date_str}")
                 return False, None
 
         except Exception as e:
-            pout.error(f"  Error: {str(e)[:50]}")
+            ui.log_activity(f"  ERROR: {str(e)[:50]}")
             self.logger.error(f"Failed to book {date_str}: {e}")
             return False, None
 

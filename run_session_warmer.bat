@@ -22,7 +22,7 @@ echo.
 echo ======================================================================
 echo.
 
-python warm_session.py
+python D:\SD\spaceIqBotv01\auto_warm_session.py
 
 echo.
 echo ======================================================================
