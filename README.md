@@ -34,8 +34,8 @@ Before you start, make sure you have:
 Open a terminal (Command Prompt on Windows, Terminal on Mac/Linux) and run:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/spaceIqBotv01.git
-cd spaceIqBotv01
+git clone https://github.com/itsui/spaceiq-bot.git
+cd spaceiq-bot
 ```
 
 ### Step 2: Install Dependencies
