@@ -2,19 +2,19 @@
 Automated Session Warmer Script
 
 Automatically launches browser, navigates to SpaceIQ, and maintains session.
-This script eliminates the need to manually open terminals and run Chrome commands.
+Uses the same authentication method as headless booking (storage_state with auth.json).
 
 Usage:
     python auto_warm_session.py            # Standard mode (opens browser, waits for login if needed)
     python auto_warm_session.py --headless # Headless mode (only works if already logged in)
 
 How it works:
-    1. Launches browser with persistent session
-    2. Navigates to SpaceIQ floor view
+    1. Loads existing session from auth.json (if exists)
+    2. Launches browser and navigates to SpaceIQ floor view
     3. Checks login status:
-       - If logged in: Saves session and exits
+       - If logged in: Saves refreshed session and exits
        - If logged out: Opens browser window for manual SSO login, waits, then saves session
-    4. Session is saved for use by booking scripts
+    4. Session is saved to auth.json for use by booking scripts
 
 Schedule this to run before booking scripts to ensure fresh session.
 """
@@ -43,26 +43,43 @@ async def auto_warm_session(headless: bool = False):
     print(f"Target: {Config.SPACEIQ_URL}/finder/building/LC/floor/2")
     print("=" * 70 + "\n")
 
-    # Setup browser data directory for persistent session
-    user_data_dir = Config.AUTH_DIR / "browser_profile"
-    user_data_dir.mkdir(parents=True, exist_ok=True)
+    # Check if auth state exists
+    auth_exists = Config.AUTH_STATE_FILE.exists()
+    if not auth_exists:
+        print("[WARNING] No existing session found. Will need to login.")
+        if headless:
+            print("[ERROR] Cannot login in headless mode without existing session!")
+            print("Run without --headless flag first to complete initial login.")
+            return False
 
     try:
         async with async_playwright() as p:
             print("[INFO] Launching browser...")
 
-            # Launch browser with persistent context (keeps cookies/sessions)
-            context = await p.chromium.launch_persistent_context(
-                user_data_dir=str(user_data_dir),
+            # Launch browser (same method as headless booking)
+            browser = await p.chromium.launch(
                 headless=headless,
-                channel="chrome",  # Use installed Chrome
                 args=[
                     '--disable-blink-features=AutomationControlled',  # Avoid detection
                 ],
-                viewport={'width': 1920, 'height': 1080},
             )
 
             print("[INFO] Browser launched successfully")
+
+            # Create context with saved authentication state (if exists)
+            if auth_exists:
+                print(f"[INFO] Loading existing session from {Config.AUTH_STATE_FILE}")
+                context = await browser.new_context(
+                    storage_state=str(Config.AUTH_STATE_FILE),
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                )
+            else:
+                print("[INFO] Creating new browser context (no existing session)")
+                context = await browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                )
 
             # Create or get page
             if context.pages:
@@ -120,6 +137,7 @@ async def auto_warm_session(headless: bool = False):
                     print(f"\n[ERROR] Login timeout: {e}")
                     print("Please try again or check your SSO configuration.")
                     await context.close()
+                    await browser.close()
                     return False
 
             elif "/finder/building/" in current_url:
@@ -133,6 +151,7 @@ async def auto_warm_session(headless: bool = False):
                     input("\nPress Enter after you've navigated to the floor view...")
                 else:
                     await context.close()
+                    await browser.close()
                     return False
 
             # Save session state
@@ -154,6 +173,7 @@ async def auto_warm_session(headless: bool = False):
 
             # Close browser
             await context.close()
+            await browser.close()
             return True
 
     except Exception as e:

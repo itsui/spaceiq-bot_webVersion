@@ -26,6 +26,20 @@ class Config:
     HEADLESS = os.getenv("HEADLESS", "False").lower() == "true"
     TIMEOUT = int(os.getenv("TIMEOUT", "30000"))  # milliseconds
 
+    # Booking Configuration
+    # Only attempt to book today's date if current time is before this hour
+    # Format: 24-hour time (e.g., 9 for 9:00 AM, 14 for 2:00 PM)
+    # After this time, assumes you don't need a desk for today
+    BOOKING_TODAY_CUTOFF_HOUR = int(os.getenv("BOOKING_TODAY_CUTOFF_HOUR", "9"))
+    BOOKING_TODAY_CUTOFF_MINUTE = int(os.getenv("BOOKING_TODAY_CUTOFF_MINUTE", "30"))
+
+    # Logging Configuration
+    # Enable/disable console logging (captures all UI output to file)
+    # Console logs can get large due to UI refreshes - disable if not needed
+    ENABLE_CONSOLE_LOGGING = os.getenv("ENABLE_CONSOLE_LOGGING", "true").lower() == "true"
+    # Strip ANSI color codes from console logs to reduce file size
+    STRIP_ANSI_FROM_LOGS = os.getenv("STRIP_ANSI_FROM_LOGS", "true").lower() == "true"
+
     # Authentication
     AUTH_STATE_FILE = AUTH_DIR / "auth.json"
 

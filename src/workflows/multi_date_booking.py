@@ -269,6 +269,21 @@ class MultiDateBookingWorkflow:
                             date_str = current_date_check.strftime("%Y-%m-%d")
                             # Skip if already booked
                             if date_str not in existing_bookings:
+                                # Special check for today: only book if before cutoff time
+                                if current_date_check == today_now:
+                                    from config import Config
+                                    current_time = datetime.now()
+                                    cutoff_time = current_time.replace(
+                                        hour=Config.BOOKING_TODAY_CUTOFF_HOUR,
+                                        minute=Config.BOOKING_TODAY_CUTOFF_MINUTE,
+                                        second=0,
+                                        microsecond=0
+                                    )
+                                    if current_time >= cutoff_time:
+                                        # Too late to book today, skip it
+                                        self.logger.info(f"Skipping today ({date_str}) - after cutoff time {Config.BOOKING_TODAY_CUTOFF_HOUR:02d}:{Config.BOOKING_TODAY_CUTOFF_MINUTE:02d}")
+                                        current_date_check += timedelta(days=1)
+                                        continue
                                 dates_to_try_now.append(date_str)
                     current_date_check += timedelta(days=1)
 

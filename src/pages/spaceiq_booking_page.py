@@ -1090,6 +1090,9 @@ class SpaceIQBookingPage(BasePage):
         """
         Fetch existing bookings from 'My Bookings' modal.
 
+        Checks both "Upcoming Bookings" and "Past Bookings" tabs.
+        This prevents rebooking dates that have been checked in (moved to past).
+
         Returns:
             List of dates (YYYY-MM-DD format) that are already booked
         """
@@ -1111,9 +1114,8 @@ class SpaceIQBookingPage(BasePage):
             modal = self.page.locator('.modal-content')
             await modal.wait_for(state='visible', timeout=5000)
 
-            # Parse ONLY the "Upcoming Bookings" tab (the active one)
-            # Both tabs exist in DOM, but only one is active (has "active in" classes)
-            # Select only rows from the active tab pane
+            # Parse "Upcoming Bookings" tab
+            # Select only rows from the upcoming bookings tab pane
             upcoming_pane = self.page.locator('#bookings-pane-upcoming\\ bookings')
             rows = upcoming_pane.locator('.UITable---row')  # This selector already excludes header
             row_count = await rows.count()
@@ -1142,7 +1144,7 @@ class SpaceIQBookingPage(BasePage):
                             existing_bookings.append(date_str)
                             # print(f"       DEBUG: Found existing booking: {date_str}")
                             if logger:
-                                logger.info(f"Existing booking found: {date_str}")
+                                logger.info(f"Existing booking found (upcoming): {date_str}")
                     except ValueError as ve:
                         # Skip if date parsing fails
                         # print(f"       DEBUG: Could not parse date '{date_text}': {ve}")
@@ -1155,8 +1157,48 @@ class SpaceIQBookingPage(BasePage):
                         logger.warning(f"Error parsing booking row {i}: {e}")
                     continue
 
-            # Close the modal - use more specific selector in the modal footer
-            close_btn = self.page.locator('.modal-footer button:has-text("Close")')
+            # Also check "Past Bookings" tab for today's date
+            # This prevents rebooking when user has already checked in today
+            from datetime import datetime, date
+            today_str = date.today().strftime('%Y-%m-%d')
+
+            # Click on the "Past Bookings" tab
+            past_tab = self.page.locator('#bookings-tab-past\\ bookings')
+            await past_tab.click()
+            await asyncio.sleep(0.5)
+
+            # Parse "Past Bookings" tab
+            past_pane = self.page.locator('#bookings-pane-past\\ bookings')
+            past_rows = past_pane.locator('.UITable---row')
+            past_row_count = await past_rows.count()
+
+            for i in range(0, past_row_count):
+                try:
+                    # Get the first cell which contains the date
+                    date_cell = past_rows.nth(i).locator('.UITable---cell').first
+                    date_text = await date_cell.text_content()
+                    date_text = date_text.strip()
+
+                    # Convert to YYYY-MM-DD format
+                    try:
+                        parsed_date = datetime.strptime(date_text, '%b %d, %Y')
+                        date_str = parsed_date.strftime('%Y-%m-%d')
+
+                        # Add to list if not already present
+                        if date_str not in existing_bookings:
+                            existing_bookings.append(date_str)
+                            if logger:
+                                logger.info(f"Existing booking found (past): {date_str}")
+                    except ValueError:
+                        continue
+
+                except Exception as e:
+                    if logger:
+                        logger.warning(f"Error parsing past booking row {i}: {e}")
+                    continue
+
+            # Close the modal - use .first to avoid strict mode violation with multiple Close buttons
+            close_btn = self.page.locator('.modal-footer button:has-text("Close")').first
             await close_btn.click(timeout=3000)
             await asyncio.sleep(0.5)
 
@@ -1172,7 +1214,7 @@ class SpaceIQBookingPage(BasePage):
 
             # Try to close any open modals
             try:
-                close_btn = self.page.locator('.modal-footer button:has-text("Close")')
+                close_btn = self.page.locator('.modal-footer button:has-text("Close")').first
                 if await close_btn.count() > 0:
                     await close_btn.click(timeout=3000)
                     await asyncio.sleep(0.5)
