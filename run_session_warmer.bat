@@ -22,4 +22,9 @@ echo.
 echo ======================================================================
 echo.
 
-python D:\SD\spaceIqBotv01\auto_warm_session.py --headless
+python D:\SD\spaceIqBotv01\auto_warm_session.py
+
+echo.
+echo ======================================================================
+echo Press any key to close...
+pause >nul

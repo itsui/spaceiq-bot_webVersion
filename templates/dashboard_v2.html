@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - SpaceIQ Bot</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .dashboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 0;
+        }
+        .user-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            backdrop-filter: blur(10px);
+        }
+        .stat-card {
+            border: none;
+            border-radius: 0.75rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .logs-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        .log-entry {
+            padding: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+            margin-bottom: 0;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-timestamp {
+            color: #6c757d;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+        }
+        .btn-control {
+            min-width: 120px;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+        .status-running {
+            background-color: #28a745;
+            animation: pulse 2s infinite;
+        }
+        .status-stopped {
+            background-color: #dc3545;
+        }
+        .status-error {
+            background-color: #ffc107;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+            transition: color 0.3s ease;
+        }
+        .nav-link:hover {
+            color: white !important;
+        }
+        .nav-link.active {
+            color: white !important;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 0.375rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-0">
+                        <i class="bi bi-robot me-2"></i>SpaceIQ Bot Dashboard
+                    </h2>
+                    <p class="mb-0 mt-1">Multi-User Desk Booking System</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="user-info">
+                        <div class="d-flex align-items-center justify-content-end">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <span id="current-user">Loading...</span>
+                        </div>
+                        <small class="d-block text-end mt-1">
+                            <a href="/logout" class="text-white text-decoration-none">
+                                <i class="bi bi-box-arrow-right me-1"></i>Logout
+                            </a>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <!-- Navigation -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <nav class="nav nav-pills">
+                        <a class="nav-link active" href="#dashboard" data-tab="dashboard">
+                            <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                        </a>
+                        <a class="nav-link" href="#configuration" data-tab="configuration">
+                            <i class="bi bi-gear me-1"></i> Configuration
+                        </a>
+                        <a class="nav-link" href="#logs" data-tab="logs">
+                            <i class="bi bi-file-text me-1"></i> Logs
+                        </a>
+                        <a class="nav-link" href="#help" data-tab="help">
+                            <i class="bi bi-question-circle me-1"></i> Help
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container mt-4">
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content">
+            <!-- Status Card -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">
+                                    <span class="status-indicator" id="status-light"></span>
+                                    Bot Status
+                                </h5>
+                                <div>
+                                    <button id="start-btn" class="btn btn-success btn-control" onclick="startBot()">
+                                        <i class="bi bi-play-fill me-2"></i> Start Bot
+                                    </button>
+                                    <button id="stop-btn" class="btn btn-danger btn-control" onclick="stopBot()" disabled>
+                                        <i class="bi bi-stop-fill me-2"></i> Stop Bot
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Current Status</h6>
+                                    <p class="mb-0" id="status-display">Checking...</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Session Info</h6>
+                                    <p class="mb-0" id="session-info">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card stat-card text-center">
+                        <div class="card-body">
+                            <div class="stat-number" id="current-round">0</div>
+                            <div class="text-muted">Current Round</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card text-center">
+                        <div class="card-body">
+                            <div class="stat-number text-success" id="successful-bookings">0</div>
+                            <div class="text-muted">Successful</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card text-center">
+                        <div class="card-body">
+                            <div class="stat-number text-danger" id="failed-attempts">0</div>
+                            <div class="text-muted">Failed</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card stat-card text-center">
+                        <div class="card-body">
+                            <div class="stat-number text-info" id="uptime">00:00</div>
+                            <div class="text-muted">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Preview -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-card-list me-2"></i>Current Configuration
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <small class="text-muted">Building/Floor</small>
+                                    <p class="mb-2" id="config-building">Loading...</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Desk Prefix</small>
+                                    <p class="mb-2" id="config-desk-prefix">Loading...</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Dates to Book</small>
+                                    <p class="mb-2" id="config-dates">Loading...</p>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Booking Days</small>
+                                    <p class="mb-2" id="config-days">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-terminal me-2"></i>Bot Logs
+                            </h6>
+                            <div>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearLogs()">
+                                    <i class="bi bi-trash"></i> Clear
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="toggleAutoScroll()">
+                                    <i class="bi bi-arrow-down-up"></i> Auto-scroll
+                                </button>
+                            </div>
+                        </div>
+                        <div class="logs-container" id="logs-container">
+                            <div id="logs-content">
+                                <div class="text-muted text-center p-3">
+                                    <i class="bi bi-hourglass-split"></i>
+                                    <p class="mb-0 mt-2">Waiting for bot logs...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Tab -->
+        <div id="configuration-tab" class="tab-content" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-gear me-2"></i>Configuration Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Configuration editor coming soon...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div id="logs-tab" class="tab-content" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-file-text me-2"></i>Detailed Logs
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Advanced log viewing coming soon...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Tab -->
+        <div id="help-tab" class="tab-content" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="bi bi-question-circle me-2"></i>Help & Documentation
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="helpAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#helpGettingStarted">
+                                    Getting Started
+                                </button>
+                            </h2>
+                            <div id="helpGettingStarted" class="accordion-collapse collapse show" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li><strong>Authenticate</strong>: Complete SpaceIQ SSO login first</li>
+                                        <li><strong>Configure</strong>: Set your booking preferences</li>
+                                        <li><strong>Start Bot</strong>: Click "Start Bot" to begin booking</li>
+                                        <li><strong>Monitor</strong>: Watch logs and status in real-time</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#helpTroubleshooting">
+                                    Troubleshooting
+                                </button>
+                            </h2>
+                            <div id="helpTroubleshooting" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <h6>Bot Won't Start</h6>
+                                    <ul>
+                                        <li>Make sure you've completed SSO authentication</li>
+                                        <li>Check if your configuration is valid</li>
+                                        <li>Look at the logs for error messages</li>
+                                    </ul>
+
+                                    <h6>Authentication Issues</h6>
+                                    <ul>
+                                        <li>Make sure you're using your company email</li>
+                                        <li>Complete the full SSO flow in the browser</li>
+                                        <li>Wait for the "Authentication Successful" message</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let autoScroll = true;
+        let statusCheckInterval;
+        let currentUser = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            setupTabSwitching();
+            startStatusPolling();
+        });
+
+        function initializeDashboard() {
+            // Get current user info
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    // User is authenticated, update UI
+                    updateUserInfo();
+                })
+                .catch(error => {
+                    console.error('Failed to get user status:', error);
+                    window.location.href = '/login';
+                });
+        }
+
+        function updateUserInfo() {
+            // This would normally come from the server
+            document.getElementById('current-user').textContent = 'Loading...';
+        }
+
+        function setupTabSwitching() {
+            const tabLinks = document.querySelectorAll('[data-tab]');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    const targetTab = this.getAttribute('data-tab');
+
+                    // Update nav links
+                    tabLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+
+                    // Update content
+                    tabContents.forEach(content => {
+                        content.style.display = 'none';
+                    });
+
+                    document.getElementById(targetTab + '-tab').style.display = 'block';
+                });
+            });
+        }
+
+        function startStatusPolling() {
+            statusCheckInterval = setInterval(checkStatus, 2000);
+            checkStatus(); // Initial check
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+
+                if (status.error) {
+                    window.location.href = '/login';
+                    return;
+                }
+
+                updateStatusDisplay(status);
+                updateLogs(status.logs || []);
+
+            } catch (error) {
+                console.error('Failed to get status:', error);
+            }
+        }
+
+        function updateStatusDisplay(status) {
+            const statusLight = document.getElementById('status-light');
+            const statusDisplay = document.getElementById('status-display');
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+
+            if (status.running) {
+                statusLight.className = 'status-indicator status-running';
+                statusDisplay.textContent = 'Running';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            } else if (status.error) {
+                statusLight.className = 'status-indicator status-error';
+                statusDisplay.textContent = `Error: ${status.error}`;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            } else {
+                statusLight.className = 'status-indicator status-stopped';
+                statusDisplay.textContent = 'Stopped';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+
+            // Update statistics
+            document.getElementById('current-round').textContent = status.current_round || 0;
+            document.getElementById('successful-bookings').textContent = status.successful_bookings || 0;
+            document.getElementById('failed-attempts').textContent = status.failed_attempts || 0;
+
+            // Update uptime
+            if (status.started_at) {
+                const uptime = calculateUptime(status.started_at);
+                document.getElementById('uptime').textContent = uptime;
+            } else {
+                document.getElementById('uptime').textContent = '00:00';
+            }
+        }
+
+        function calculateUptime(startTime) {
+            const start = new Date(startTime);
+            const now = new Date();
+            const diff = now - start;
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+
+        function updateLogs(logs) {
+            const logsContent = document.getElementById('logs-content');
+
+            if (!logs || logs.length === 0) {
+                logsContent.innerHTML = `
+                    <div class="text-muted text-center p-3">
+                        <i class="bi bi-hourglass-split"></i>
+                        <p class="mb-0 mt-2">Waiting for bot logs...</p>
+                    </div>
+                `;
+                return;
+            }
+
+            logsContent.innerHTML = logs.map(log => {
+                const timestamp = new Date(log.timestamp).toLocaleTimeString();
+                const logClass = getLogClass(log.message);
+
+                return `
+                    <div class="log-entry">
+                        <span class="log-timestamp">[${timestamp}]</span>
+                        <span class="${logClass}">${escapeHtml(log.message)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-scroll to bottom if enabled
+            if (autoScroll) {
+                const logsContainer = document.getElementById('logs-container');
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+            }
+        }
+
+        function getLogClass(message) {
+            const msgLower = message.toLowerCase();
+            if (msgLower.includes('success') || msgLower.includes('booked')) {
+                return 'text-success';
+            } else if (msgLower.includes('error') || msgLower.includes('failed')) {
+                return 'text-danger';
+            } else if (msgLower.includes('warning') || msgLower.includes('warn')) {
+                return 'text-warning';
+            }
+            return '';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function startBot() {
+            try {
+                const response = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Bot started successfully!', 'success');
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to start bot: ' + error.message, 'error');
+            }
+        }
+
+        async function stopBot() {
+            try {
+                const response = await fetch('/api/stop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Bot stopped successfully!', 'success');
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to stop bot: ' + error.message, 'error');
+            }
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear the logs display?')) {
+                document.getElementById('logs-content').innerHTML = `
+                    <div class="text-muted text-center p-3">
+                        <i class="bi bi-trash"></i>
+                        <p class="mb-0 mt-2">Logs cleared</p>
+                    </div>
+                `;
+                showNotification('Logs cleared', 'info');
+            }
+        }
+
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            showNotification(autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled', 'info');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create toast notification
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+            toast.style.zIndex = '9999';
+            toast.style.minWidth = '300px';
+            toast.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    ${message}
+                    <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 5000);
+        }
+
+        // Load configuration preview
+        async function loadConfigurationPreview() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+
+                document.getElementById('config-building').textContent =
+                    `${config.building || 'N/A'} / Floor ${config.floor || 'N/A'}`;
+                document.getElementById('config-desk-prefix').textContent =
+                    config.desk_preferences?.prefix || 'Not set';
+                document.getElementById('config-dates').textContent =
+                    (config.dates_to_try || []).length + ' dates configured';
+
+                const weekdays = config.booking_days?.weekdays || [];
+                const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const selectedDays = weekdays.map(day => dayNames[day]).join(', ') || 'None';
+                document.getElementById('config-days').textContent = selectedDays;
+
+            } catch (error) {
+                console.error('Failed to load configuration:', error);
+            }
+        }
+
+        // Load configuration on page load
+        loadConfigurationPreview();
+    </script>
+</body>
+</html>

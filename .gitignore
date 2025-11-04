@@ -34,6 +34,9 @@ playwright/.auth/
 
 # Environment variables
 .env
+.env.local
+.env.production
+env.txt
 
 # IDE
 .vscode/
@@ -51,10 +54,23 @@ Thumbs.db
 *.log
 logs/
 
+# Database (contains user data - DO NOT COMMIT)
+*.db
+*.sqlite
+*.sqlite3
+!schema.sql
+
 # Screenshots and test artifacts
 screenshots/
 test-results/
 playwright-report/
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Windows shortcuts
+*.lnk
 
 # Archived files
 _archived_scripts/

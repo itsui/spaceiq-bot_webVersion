@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 from playwright.async_api import async_playwright
 from config import Config
+from src.utils.auth_encryption import load_encrypted_session
 
 
 async def auto_warm_session(headless: bool = False):
@@ -69,11 +70,22 @@ async def auto_warm_session(headless: bool = False):
             # Create context with saved authentication state (if exists)
             if auth_exists:
                 print(f"[INFO] Loading existing session from {Config.AUTH_STATE_FILE}")
-                context = await browser.new_context(
-                    storage_state=str(Config.AUTH_STATE_FILE),
-                    viewport={'width': 1920, 'height': 1080},
-                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                )
+
+                # Load and decrypt session
+                session_data = load_encrypted_session(Config.AUTH_STATE_FILE)
+
+                if not session_data:
+                    print("[WARNING] Could not load/decrypt session - will need to login")
+                    context = await browser.new_context(
+                        viewport={'width': 1920, 'height': 1080},
+                        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    )
+                else:
+                    context = await browser.new_context(
+                        storage_state=session_data,  # Use decrypted dict
+                        viewport={'width': 1920, 'height': 1080},
+                        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    )
             else:
                 print("[INFO] Creating new browser context (no existing session)")
                 context = await browser.new_context(
@@ -157,9 +169,27 @@ async def auto_warm_session(headless: bool = False):
             # Save session state
             print(f"\n[INFO] Saving session state...")
             Config.AUTH_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            await context.storage_state(path=str(Config.AUTH_STATE_FILE))
 
-            print(f"[SUCCESS] Session saved to: {Config.AUTH_STATE_FILE}")
+            # Save to temporary file first (Playwright requires direct path)
+            temp_file = Config.AUTH_STATE_FILE.parent / "temp_auth.json"
+            await context.storage_state(path=str(temp_file))
+
+            # Read the saved session and encrypt it
+            import json
+            from src.utils.auth_encryption import save_encrypted_session
+
+            with open(temp_file, 'r', encoding='utf-8') as f:
+                session_data = json.load(f)
+
+            # Save with encryption
+            if save_encrypted_session(Config.AUTH_STATE_FILE, session_data):
+                # Remove temp file
+                temp_file.unlink()
+                print(f"[SUCCESS] Session saved and encrypted: {Config.AUTH_STATE_FILE}")
+            else:
+                # If encryption fails, use unencrypted version
+                temp_file.rename(Config.AUTH_STATE_FILE)
+                print(f"[WARNING] Session saved without encryption: {Config.AUTH_STATE_FILE}")
             print("\n" + "=" * 70)
             print("         Session Warmed Successfully!")
             print("=" * 70)
@@ -190,10 +220,33 @@ async def auto_warm_session(headless: bool = False):
 
 async def main():
     """Main entry point"""
-    # Check for headless flag
-    headless = "--headless" in sys.argv or "-h" in sys.argv
+    # Check for headless flag (explicit override)
+    force_headless = "--headless" in sys.argv or "-h" in sys.argv
+    force_headed = "--headed" in sys.argv
 
-    success = await auto_warm_session(headless=headless)
+    # Smart mode: Auto-detect based on auth file existence
+    if not force_headless and not force_headed:
+        # Check if auth exists - if yes, try headless first
+        auth_exists = Config.AUTH_STATE_FILE.exists()
+        if auth_exists:
+            print("[INFO] Existing session found - trying headless mode first...")
+            success = await auto_warm_session(headless=True)
+
+            if success:
+                exit(0)
+            else:
+                # Headless failed - probably session expired
+                print("\n[WARNING] Headless mode failed - retrying with browser window...")
+                print("[INFO] You may need to login again...\n")
+                success = await auto_warm_session(headless=False)
+        else:
+            # No auth file - need browser for SSO login
+            print("[INFO] No existing session - opening browser for login...")
+            success = await auto_warm_session(headless=False)
+    else:
+        # User explicitly chose mode
+        headless = force_headless
+        success = await auto_warm_session(headless=headless)
 
     if not success:
         print("\n[FAILED] Session warming failed.")

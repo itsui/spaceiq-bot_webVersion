@@ -1,0 +1,501 @@
+{% extends "base_multi.html" %}
+
+{% block title %}Booking History - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="text-white">
+            <i class="bi bi-clock-history"></i> Booking History
+        </h2>
+        <p class="text-white-50">View your past booking attempts and results</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-ul"></i> History
+                </h5>
+                <div>
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshHistory()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="removeDuplicates()">
+                        <i class="bi bi-funnel"></i> Remove Duplicates
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="clearFailedHistory()">
+                        <i class="bi bi-trash"></i> Clear Failed
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="exportHistory()">
+                        <i class="bi bi-download"></i> Export CSV
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <label for="filter-status" class="form-label">Status</label>
+                        <select class="form-select" id="filter-status" onchange="filterHistory()">
+                            <option value="">All Status</option>
+                            <option value="success">Success</option>
+                            <option value="failed">Failed</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filter-date-from" class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="filter-date-from" onchange="filterHistory()">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filter-date-to" class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="filter-date-to" onchange="filterHistory()">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                            <i class="bi bi-x-circle"></i> Clear Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Statistics Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-success">0</h4>
+                                <small>Successful</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card" style="background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white;">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-failed">0</h4>
+                                <small>Failed</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card" style="background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%); color: white;">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-pending">0</h4>
+                                <small>Pending</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-total">0</h4>
+                                <small>Total</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="cursor: pointer;" onclick="sortHistory('id')">
+                                    ID <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th style="cursor: pointer;" onclick="sortHistory('timestamp')">
+                                    Timestamp <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th style="cursor: pointer;" onclick="sortHistory('date')">
+                                    Booking Date <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th style="cursor: pointer;" onclick="sortHistory('desk_number')">
+                                    Desk <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th style="cursor: pointer;" onclick="sortHistory('status')">
+                                    Status <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div class="mt-2">Loading booking history...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <nav aria-label="History pagination">
+                    <ul class="pagination justify-content-center" id="pagination">
+                        <!-- Pagination will be added here dynamically -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Detail Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Booking Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="booking-details">
+                <!-- Booking details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let bookingHistory = [];
+let filteredHistory = [];
+let currentPage = 1;
+let itemsPerPage = 20;
+let sortField = 'timestamp';
+let sortDirection = 'desc';
+
+// Load history when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Set default filter dates (last 30 days)
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+    document.getElementById('filter-date-to').value = today.toISOString().split('T')[0];
+    document.getElementById('filter-date-from').value = thirtyDaysAgo.toISOString().split('T')[0];
+
+    loadBookingHistory();
+});
+
+async function loadBookingHistory() {
+    try {
+        const data = await apiCall('/api/history');
+
+        if (data.history) {
+            bookingHistory = data.history;
+            filteredHistory = [...bookingHistory];
+            updateStatistics();
+            displayHistory();
+        } else {
+            showError('No history data available');
+        }
+    } catch (error) {
+        console.error('Failed to load history:', error);
+        showError('Failed to load booking history');
+    }
+}
+
+function updateStatistics() {
+    const stats = {
+        success: 0,
+        failed: 0,
+        pending: 0,
+        total: filteredHistory.length
+    };
+
+    filteredHistory.forEach(booking => {
+        if (booking.status === 'success') stats.success++;
+        else if (booking.status === 'failed') stats.failed++;
+        else if (booking.status === 'pending') stats.pending++;
+    });
+
+    document.getElementById('stat-success').textContent = stats.success;
+    document.getElementById('stat-failed').textContent = stats.failed;
+    document.getElementById('stat-pending').textContent = stats.pending;
+    document.getElementById('stat-total').textContent = stats.total;
+}
+
+function displayHistory() {
+    const tbody = document.getElementById('history-tbody');
+    tbody.innerHTML = '';
+
+    if (filteredHistory.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No booking history found</td></tr>';
+        return;
+    }
+
+    // Sort history
+    filteredHistory.sort((a, b) => {
+        let aVal = a[sortField] || '';
+        let bVal = b[sortField] || '';
+
+        if (sortDirection === 'asc') {
+            return aVal > bVal ? 1 : -1;
+        } else {
+            return aVal < bVal ? 1 : -1;
+        }
+    });
+
+    // Pagination
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageHistory = filteredHistory.slice(start, end);
+
+    // Display rows
+    pageHistory.forEach(booking => {
+        const row = document.createElement('tr');
+
+        // Format timestamp
+        const timestamp = new Date(booking.timestamp).toLocaleString();
+
+        // Status badge
+        let statusBadge = '';
+        if (booking.status === 'success') {
+            statusBadge = '<span class="badge bg-success">Success</span>';
+        } else if (booking.status === 'failed') {
+            statusBadge = '<span class="badge bg-danger">Failed</span>';
+        } else {
+            statusBadge = '<span class="badge bg-warning">Pending</span>';
+        }
+
+        row.innerHTML = `
+            <td><small class="text-muted">#${booking.id}</small></td>
+            <td>${timestamp}</td>
+            <td>${booking.date || 'N/A'}</td>
+            <td><strong>${booking.desk_number || 'N/A'}</strong></td>
+            <td>${statusBadge}</td>
+            <td>
+                ${booking.round_number ? `<small class="text-muted">Round #${booking.round_number}</small><br>` : ''}
+                <button class="btn btn-sm btn-outline-primary" onclick='showBookingDetails(${JSON.stringify(booking)})'>
+                    <i class="bi bi-info-circle"></i> View
+                </button>
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+
+    // Update pagination
+    updatePagination();
+}
+
+function updatePagination() {
+    const pagination = document.getElementById('pagination');
+    pagination.innerHTML = '';
+
+    const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+
+    if (totalPages <= 1) return;
+
+    // Previous button
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = '<a class="page-link" href="#" onclick="changePage(' + (currentPage - 1) + '); return false;">Previous</a>';
+    pagination.appendChild(prevLi);
+
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            li.innerHTML = '<a class="page-link" href="#" onclick="changePage(' + i + '); return false;">' + i + '</a>';
+            pagination.appendChild(li);
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            const li = document.createElement('li');
+            li.className = 'page-item disabled';
+            li.innerHTML = '<span class="page-link">...</span>';
+            pagination.appendChild(li);
+        }
+    }
+
+    // Next button
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = '<a class="page-link" href="#" onclick="changePage(' + (currentPage + 1) + '); return false;">Next</a>';
+    pagination.appendChild(nextLi);
+}
+
+function changePage(page) {
+    const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    displayHistory();
+}
+
+function filterHistory() {
+    const status = document.getElementById('filter-status').value;
+    const dateFrom = document.getElementById('filter-date-from').value;
+    const dateTo = document.getElementById('filter-date-to').value;
+
+    filteredHistory = bookingHistory.filter(booking => {
+        // Status filter
+        if (status && booking.status !== status) return false;
+
+        // Date range filter
+        if (dateFrom || dateTo) {
+            const bookingDate = new Date(booking.date || booking.timestamp);
+            if (dateFrom && bookingDate < new Date(dateFrom)) return false;
+            if (dateTo && bookingDate > new Date(dateTo + ' 23:59:59')) return false;
+        }
+
+        return true;
+    });
+
+    currentPage = 1;
+    updateStatistics();
+    displayHistory();
+}
+
+function clearFilters() {
+    document.getElementById('filter-status').value = '';
+    document.getElementById('filter-date-from').value = '';
+    document.getElementById('filter-date-to').value = '';
+    filteredHistory = [...bookingHistory];
+    currentPage = 1;
+    updateStatistics();
+    displayHistory();
+}
+
+function sortHistory(field) {
+    if (sortField === field) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField = field;
+        sortDirection = 'desc';
+    }
+    displayHistory();
+}
+
+function showBookingDetails(booking) {
+    const detailsDiv = document.getElementById('booking-details');
+
+    detailsDiv.innerHTML = `
+        <table class="table table-bordered">
+            <tr>
+                <th>Timestamp</th>
+                <td>${new Date(booking.timestamp).toLocaleString()}</td>
+            </tr>
+            <tr>
+                <th>Booking Date</th>
+                <td>${booking.date || 'N/A'}</td>
+            </tr>
+            <tr>
+                <th>Desk Number</th>
+                <td>${booking.desk_number || 'N/A'}</td>
+            </tr>
+            <tr>
+                <th>Round Number</th>
+                <td>#${booking.round_number || 'N/A'}</td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>${booking.status}</td>
+            </tr>
+            <tr>
+                <th>Error Message</th>
+                <td>${booking.error_message || 'None'}</td>
+            </tr>
+        </table>
+    `;
+
+    const modal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    modal.show();
+}
+
+async function refreshHistory() {
+    showToast('Refreshing history...', 'info');
+    await loadBookingHistory();
+    showToast('History refreshed!', 'success');
+}
+
+async function removeDuplicates() {
+    if (!confirm('Remove duplicate booking entries? This will keep only the first entry for each unique booking (same date + desk + status).')) {
+        return;
+    }
+
+    try {
+        const data = await apiCall('/api/history/remove-duplicates', { method: 'POST' });
+
+        if (data.success) {
+            showToast(`Removed ${data.deleted_count} duplicate entries`, 'success');
+            // Reload history to reflect changes
+            await loadBookingHistory();
+        } else {
+            showToast(data.error || 'Failed to remove duplicates', 'error');
+        }
+    } catch (error) {
+        console.error('Error removing duplicates:', error);
+        showToast('Error removing duplicates', 'error');
+    }
+}
+
+async function clearFailedHistory() {
+    if (!confirm('Are you sure you want to clear all failed booking history entries? This cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const data = await apiCall('/api/history/clear-failed', { method: 'POST' });
+
+        if (data.success) {
+            showToast(`Cleared ${data.deleted_count} failed entries`, 'success');
+            // Reload history to reflect changes
+            await loadBookingHistory();
+        } else {
+            showToast(data.error || 'Failed to clear history', 'error');
+        }
+    } catch (error) {
+        console.error('Error clearing failed history:', error);
+        showToast('Error clearing failed history', 'error');
+    }
+}
+
+function exportHistory() {
+    if (filteredHistory.length === 0) {
+        showToast('No data to export', 'warning');
+        return;
+    }
+
+    // Create CSV content
+    const headers = ['Timestamp', 'Booking Date', 'Desk Number', 'Status', 'Round', 'Error Message'];
+    const rows = filteredHistory.map(booking => [
+        new Date(booking.timestamp).toISOString(),
+        booking.date || '',
+        booking.desk_number || '',
+        booking.status || '',
+        booking.round_number || '',
+        (booking.error_message || '').replace(/,/g, ';')
+    ]);
+
+    let csv = headers.join(',') + '\n';
+    rows.forEach(row => {
+        csv += row.map(cell => `"${cell}"`).join(',') + '\n';
+    });
+
+    // Download CSV
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `booking-history-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    showToast('History exported successfully!', 'success');
+}
+
+function showError(message) {
+    const tbody = document.getElementById('history-tbody');
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> ${message}</td></tr>`;
+}
+</script>
+{% endblock %}

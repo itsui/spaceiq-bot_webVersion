@@ -1,0 +1,906 @@
+{% extends "base_multi.html" %}
+
+{% block title %}Dashboard - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="text-white">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </h2>
+        <p class="text-white-50">Welcome back, {{ current_user.username }}!</p>
+    </div>
+</div>
+
+<!-- SpaceIQ Authentication Status -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">SpaceIQ Authentication</h6>
+                        <p class="mb-0" id="auth-status-text">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                            Checking authentication status...
+                        </p>
+                    </div>
+                    <div>
+                        <button id="auth-btn" class="btn btn-primary" onclick="startSpaceIQAuth()" disabled>
+                            <i class="bi bi-key"></i> Authenticate with SpaceIQ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bot Control & Status -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-robot"></i> Bot Control
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Bot Controls -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center">
+                        <div id="status-indicator" class="status-indicator status-stopped me-2"></div>
+                        <span id="status-text" class="fw-bold text-danger">STOPPED</span>
+                    </div>
+                    <div>
+                        <button id="start-btn" class="btn btn-success btn-sm" onclick="startBot()">
+                            <i class="bi bi-play-fill"></i> Start
+                        </button>
+                        <button id="stop-btn" class="btn btn-danger btn-sm" onclick="stopBot()" disabled>
+                            <i class="bi bi-stop-fill"></i> Stop
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Main Dashboard Layout -->
+                <div class="row">
+                    <!-- Left: Booking Dates Status -->
+                    <div class="col-md-6">
+                        <div class="card bg-dark text-white mb-3" style="border: 1px solid #17a2b8;">
+                            <div class="card-header bg-transparent border-bottom border-info">
+                                <small class="text-info" style="font-family: monospace;">Booking Dates Status</small>
+                            </div>
+                            <div class="card-body p-2" style="max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                                <div id="dates-status-list">
+                                    <div class="text-muted" style="font-size: 0.8rem;">Waiting for data...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Session Info & Summary -->
+                    <div class="col-md-6">
+                        <!-- Session Info -->
+                        <div class="card bg-dark text-white mb-2" style="border: 1px solid #e83e8c;">
+                            <div class="card-header bg-transparent border-bottom border-pink p-2">
+                                <small class="text-pink" style="font-family: monospace; color: #e83e8c;">Session Info</small>
+                            </div>
+                            <div class="card-body p-2" style="font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                                <div class="row g-1">
+                                    <div class="col-6"><span style="color: #adb5bd;">Round:</span></div>
+                                    <div class="col-6 text-end"><span class="text-success" id="session-round">#0</span></div>
+                                    <div class="col-6"><span style="color: #adb5bd;">Runtime:</span></div>
+                                    <div class="col-6 text-end" id="session-runtime">00:00:00</div>
+                                    <div class="col-6"><span style="color: #adb5bd;">Dates:</span></div>
+                                    <div class="col-6 text-end"><span id="session-dates-remaining">0/0</span> remaining</div>
+                                    <div class="col-6"><span style="color: #adb5bd;">Next Check:</span></div>
+                                    <div class="col-6 text-end" id="session-next-check">--</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Summary -->
+                        <div class="card bg-dark text-white mb-2" style="border: 1px solid #28a745;">
+                            <div class="card-header bg-transparent border-bottom border-success p-2">
+                                <small class="text-success" style="font-family: monospace;">Quick Summary</small>
+                            </div>
+                            <div class="card-body p-2" style="font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                                <div class="row g-1">
+                                    <div class="col-8"><span style="color: #adb5bd;">Already Booked</span></div>
+                                    <div class="col-4 text-end"><span class="text-success" id="summary-booked">0</span></div>
+                                    <div class="col-8"><span style="color: #adb5bd;">No Seats</span></div>
+                                    <div class="col-4 text-end"><span class="text-warning" id="summary-no-seats">0</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Activity -->
+                        <div class="card bg-dark text-white" style="border: 1px solid #ffc107;">
+                            <div class="card-header bg-transparent border-bottom border-warning p-2">
+                                <small class="text-warning" style="font-family: monospace;">Current Activity</small>
+                            </div>
+                            <div class="card-body p-2" style="font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                                <div id="current-activity-main" class="text-white-50 mb-1">&gt; Waiting to start</div>
+                                <div id="current-activity-details" class="text-muted small"></div>
+                                <div id="current-activity-countdown" class="text-muted small mt-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Display -->
+                <div id="error-alert" class="alert alert-danger mt-3 d-none" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Error:</strong> <span id="error-message"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Logs -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-terminal"></i> Live Logs
+                    <div class="float-end">
+                        <div class="form-check form-check-inline me-2">
+                            <input class="form-check-input" type="checkbox" id="auto-scroll-checkbox" checked>
+                            <label class="form-check-label" for="auto-scroll-checkbox" style="font-size: 0.875rem;">
+                                Auto-scroll
+                            </label>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="logs-container" id="logs-container">
+                    <div class="log-entry log-info">
+                        <span class="log-timestamp">[System]</span>
+                        <span>Waiting for bot to start...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Info Sidebar -->
+    <div class="col-lg-4">
+        <!-- Configuration Summary -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-gear"></i> Current Configuration
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Building / Floor</small>
+                    <p class="mb-0 fw-bold" id="config-building">Loading...</p>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Desk Prefix</small>
+                    <p class="mb-0 fw-bold" id="config-desk-prefix">Loading...</p>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Dates Configured</small>
+                    <p class="mb-0 fw-bold" id="config-dates">Loading...</p>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Booking Days</small>
+                    <p class="mb-0 fw-bold" id="config-days">Loading...</p>
+                </div>
+                <a href="{{ url_for('config_page') }}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-pencil"></i> Edit Configuration
+                </a>
+            </div>
+        </div>
+
+        <!-- Recent Bookings -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Recent Bookings
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="recent-bookings">
+                    <p class="text-muted">No recent bookings</p>
+                </div>
+                <div class="d-flex gap-2 mt-2">
+                    <button onclick="clearFailedHistory()" class="btn btn-outline-danger btn-sm flex-grow-1">
+                        <i class="bi bi-trash"></i> Clear Failed
+                    </button>
+                    <a href="{{ url_for('history_page') }}" class="btn btn-outline-primary btn-sm flex-grow-1">
+                        <i class="bi bi-list"></i> View All
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let statusUpdateInterval = null;
+    let authCheckInterval = null;
+    let uptimeInterval = null;
+    let countdownInterval = null;
+    let recentBookingsInterval = null;
+
+    // Real-time tracking variables
+    let botStartTime = null;
+    let currentCountdown = null;
+    let currentProgress = { current: 0, total: 0 };
+
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        checkAuthStatus();
+        loadConfiguration();
+        loadRecentBookings();
+        updateBotStatus();
+
+        // Start auto-refresh
+        statusUpdateInterval = setInterval(updateBotStatus, 1000);  // Update every second for more responsive logs
+        authCheckInterval = setInterval(checkAuthStatus, 10000);
+
+        // Start real-time counters
+        uptimeInterval = setInterval(updateUptime, 1000);
+        countdownInterval = setInterval(updateCountdown, 1000);
+
+        // Update recent bookings every 5 seconds
+        recentBookingsInterval = setInterval(loadRecentBookings, 5000);
+    });
+
+    // Check SpaceIQ authentication status
+    async function checkAuthStatus() {
+        try {
+            const data = await apiCall('/api/spaceiq/auth/status');
+
+            const authText = document.getElementById('auth-status-text');
+            const authBtn = document.getElementById('auth-btn');
+
+            if (data.is_authenticated) {
+                const displayName = data.authenticated_as || 'User';
+                authText.innerHTML = `
+                    <span class="auth-status-badge auth-status-valid">
+                        <i class="bi bi-check-circle"></i> Authenticated ${displayName !== 'Unknown' && displayName !== 'User' ? 'as ' + displayName : ''}
+                    </span>
+                `;
+                authBtn.disabled = false;
+                authBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-authenticate';
+            } else if (data.status === 'waiting_for_login') {
+                authText.innerHTML = `
+                    <span class="text-warning">
+                        <i class="bi bi-hourglass-split"></i> Waiting for you to complete login...
+                    </span>
+                `;
+                authBtn.disabled = true;
+            } else {
+                authText.innerHTML = `
+                    <span class="auth-status-badge auth-status-invalid">
+                        <i class="bi bi-exclamation-circle"></i> Not authenticated
+                    </span>
+                `;
+                authBtn.disabled = false;
+                authBtn.innerHTML = '<i class="bi bi-key"></i> Authenticate with SpaceIQ';
+            }
+        } catch (error) {
+            console.error('Error checking auth status:', error);
+        }
+    }
+
+    // Start SpaceIQ authentication
+    async function startSpaceIQAuth() {
+        try {
+            const authBtn = document.getElementById('auth-btn');
+            authBtn.disabled = true;
+            authBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
+
+            const data = await apiCall('/api/spaceiq/auth/start', {method: 'POST'});
+
+            if (data.success) {
+                showToast('Browser window will open for you to log in to SpaceIQ', 'info');
+
+                // Poll for completion
+                const pollInterval = setInterval(async () => {
+                    const status = await apiCall('/api/spaceiq/auth/status');
+                    if (status.completed) {
+                        clearInterval(pollInterval);
+                        showToast('Authentication successful!', 'success');
+                        checkAuthStatus();
+                    }
+                }, 2000);
+            } else {
+                showToast(data.message || 'Failed to start authentication', 'error');
+                authBtn.disabled = false;
+                authBtn.innerHTML = '<i class="bi bi-key"></i> Authenticate with SpaceIQ';
+            }
+        } catch (error) {
+            showToast('Error starting authentication: ' + error.message, 'error');
+            authBtn.disabled = false;
+            authBtn.innerHTML = '<i class="bi bi-key"></i> Authenticate with SpaceIQ';
+        }
+    }
+
+    // Load configuration summary
+    async function loadConfiguration() {
+        try {
+            const config = await apiCall('/api/config');
+
+            document.getElementById('config-building').textContent =
+                `${config.building || 'N/A'} / Floor ${config.floor || 'N/A'}`;
+
+            document.getElementById('config-desk-prefix').textContent =
+                config.desk_preferences?.prefix || 'Not set';
+
+            document.getElementById('config-dates').textContent =
+                `${(config.dates_to_try || []).length} dates`;
+
+            const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const days = (config.booking_days?.weekdays || []).map(d => weekdayNames[d]).join(', ');
+            document.getElementById('config-days').textContent = days || 'None';
+        } catch (error) {
+            console.error('Error loading configuration:', error);
+        }
+    }
+
+    // Load recent bookings
+    async function loadRecentBookings() {
+        try {
+            const data = await apiCall('/api/history?limit=10');
+            const container = document.getElementById('recent-bookings');
+
+            if (data.history && data.history.length > 0) {
+                container.innerHTML = data.history.map(booking => {
+                    // Format timestamp
+                    const timeAgo = booking.timestamp ? getTimeAgo(new Date(booking.timestamp)) : '';
+
+                    // Determine status badge color and icon
+                    let statusClass = 'secondary';
+                    let statusIcon = 'bi-question-circle';
+                    if (booking.status === 'success') {
+                        statusClass = 'success';
+                        statusIcon = 'bi-check-circle';
+                    } else if (booking.status === 'failed') {
+                        statusClass = 'danger';
+                        statusIcon = 'bi-x-circle';
+                    } else if (booking.status === 'pending') {
+                        statusClass = 'warning';
+                        statusIcon = 'bi-clock';
+                    }
+
+                    return `
+                        <div class="mb-3 pb-2 border-bottom">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="fw-bold">${booking.date}</span>
+                                        ${booking.round_number ? `<small class="text-muted">(Round #${booking.round_number})</small>` : ''}
+                                    </div>
+                                    ${booking.desk_number ? `<small class="text-muted d-block"><i class="bi bi-geo-alt"></i> Desk: ${booking.desk_number}</small>` : ''}
+                                    <small class="text-muted d-block"><i class="bi bi-clock"></i> ${timeAgo}</small>
+                                </div>
+                                <span class="badge bg-${statusClass}">
+                                    <i class="${statusIcon}"></i> ${booking.status.toUpperCase()}
+                                </span>
+                            </div>
+                            ${booking.error_message ? `
+                                <div class="alert alert-danger py-1 px-2 mb-0 small" role="alert">
+                                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(booking.error_message)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                container.innerHTML = '<p class="text-muted">No recent bookings</p>';
+            }
+        } catch (error) {
+            console.error('Error loading recent bookings:', error);
+        }
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Get time ago string
+    function getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+
+        if (seconds < 60) return 'Just now';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `${days}d ago`;
+
+        return date.toLocaleDateString();
+    }
+
+    // Clear failed history entries
+    async function clearFailedHistory() {
+        if (!confirm('Are you sure you want to clear all failed booking history entries? This cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const data = await apiCall('/api/history/clear-failed', { method: 'POST' });
+
+            if (data.success) {
+                showToast(`Cleared ${data.deleted_count} failed entries`, 'success');
+                // Reload recent bookings to reflect changes
+                await loadRecentBookings();
+            } else {
+                showToast(data.error || 'Failed to clear history', 'error');
+            }
+        } catch (error) {
+            console.error('Error clearing failed history:', error);
+            showToast('Error clearing failed history', 'error');
+        }
+    }
+
+    // Update bot status
+    async function updateBotStatus() {
+        try {
+            const status = await apiCall('/api/bot/status');
+
+            // Update status indicator
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            const startBtn = document.getElementById('start-btn');
+            const stopBtn = document.getElementById('stop-btn');
+
+            if (status.status === 'running') {
+                indicator.className = 'status-indicator status-running';
+                statusText.textContent = 'RUNNING';
+                statusText.className = 'fw-bold text-success';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+
+                if (!botStartTime && status.started_at) {
+                    botStartTime = new Date(status.started_at);
+                }
+            } else if (status.status === 'error') {
+                indicator.className = 'status-indicator status-error';
+                statusText.textContent = 'ERROR';
+                statusText.className = 'fw-bold text-warning';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+
+                document.getElementById('error-message').textContent = status.error || 'Unknown error';
+                document.getElementById('error-alert').classList.remove('d-none');
+
+                botStartTime = null;
+                currentCountdown = null;
+            } else {
+                indicator.className = 'status-indicator status-stopped';
+                statusText.textContent = 'STOPPED';
+                statusText.className = 'fw-bold text-danger';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                document.getElementById('error-alert').classList.add('d-none');
+
+                botStartTime = null;
+                currentCountdown = null;
+            }
+
+            // Update Session Info
+            document.getElementById('session-round').textContent = '#' + (status.current_round || 0);
+            document.getElementById('session-runtime').textContent = formatUptime(botStartTime);
+            document.getElementById('summary-booked').textContent = status.successful_bookings || 0;
+            document.getElementById('summary-no-seats').textContent = status.failed_attempts || 0;
+
+            // Update Current Activity - show the most recent relevant log message
+            if (status.logs && status.logs.length > 0) {
+                // Find the most recent operational message (not startup messages)
+                const recentLogs = status.logs.slice(-20).reverse();
+                for (const log of recentLogs) {
+                    const msg = log.message.replace(/[🔧ℹ️📊✅❌⚠️]/g, '').trim();
+
+                    // Show meaningful operational messages
+                    if (msg.includes('Starting Round') ||
+                        msg.includes('Checking existing bookings') ||
+                        msg.includes('Attempting booking for') ||
+                        msg.includes('Loading floor map') ||
+                        msg.includes('Checking available') ||
+                        msg.includes('Found') && msg.includes('available desks') ||
+                        msg.includes('No available desks') ||
+                        msg.includes('Successfully booked') ||
+                        msg.includes('Existing booking found') ||
+                        msg.includes('Navigating to') ||
+                        msg.includes('Waiting') ||
+                        msg.includes('Restarting browser')) {
+                        document.getElementById('current-activity-main').textContent = '> ' + msg;
+                        extractCountdownFromActivity(msg);
+                        break;
+                    }
+                }
+
+                // Update logs display
+                updateLogsFiltered(status.logs);
+            } else if (status.current_activity) {
+                // Fallback to status.current_activity if no logs
+                document.getElementById('current-activity-main').textContent = '> ' + status.current_activity;
+                extractCountdownFromActivity(status.current_activity);
+            }
+
+            // Load config to show dates
+            loadConfigForDashboard();
+        } catch (error) {
+            console.error('Error updating bot status:', error);
+        }
+    }
+
+    // Format uptime
+    function formatUptime(startTime) {
+        if (!startTime) return '00:00:00';
+
+        const now = new Date();
+        const seconds = Math.floor((now - startTime) / 1000);
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Update logs with filtering and deduplication
+    const seenLogs = new Set();
+    let logsInitialized = false;
+    function updateLogsFiltered(logs) {
+        const container = document.getElementById('logs-container');
+
+        // Clear placeholder message on first real log
+        if (!logsInitialized && logs && logs.length > 0) {
+            container.innerHTML = '';
+            logsInitialized = true;
+        }
+
+        logs.forEach(log => {
+            const cleanMsg = log.message.replace(/[🔧ℹ️📊✅❌⚠️]/g, '').trim();
+
+            // Skip technical details
+            if (cleanMsg.includes('Found') && cleanMsg.includes('booking entries in sidebar')) return;
+            if (cleanMsg.includes('Found') && cleanMsg.includes('booked desks')) return;
+            if (cleanMsg.includes('Loaded') && cleanMsg.includes('locked desks')) return;
+            if (cleanMsg.includes('Floor map screenshot captured')) return;
+            if (cleanMsg.includes('Waiting for floor map to render')) return;
+
+            // Create unique key
+            const logKey = `${log.timestamp}-${cleanMsg}`;
+            if (seenLogs.has(logKey)) return;
+
+            seenLogs.add(logKey);
+            if (seenLogs.size > 100) {
+                const firstKey = seenLogs.values().next().value;
+                seenLogs.delete(firstKey);
+            }
+
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${log.level}`;
+            entry.innerHTML = `<span class="log-timestamp">[${new Date(log.timestamp).toLocaleTimeString()}]</span> <span>${cleanMsg}</span>`;
+            container.appendChild(entry);
+        });
+
+        // Auto-scroll if enabled
+        if (document.getElementById('auto-scroll-checkbox').checked) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    // Load config and show date status
+    async function loadConfigForDashboard() {
+        try {
+            const config = await apiCall('/api/config');
+            const dates = config.dates_to_try || [];
+
+            // Get existing bookings from history
+            const history = await apiCall('/api/history?limit=50');
+            const booked = new Set(history.history.filter(h => h.status === 'success').map(h => h.date));
+
+            // Get bot status to check live logs for recent successful bookings
+            const botStatus = await apiCall('/api/bot/status');
+            const logs = botStatus.logs || [];
+
+            // Parse logs to find recently booked dates, existing bookings, no-seats dates, and currently trying
+            const recentlyBooked = new Set();
+            const existingBookings = new Set();
+            const recentlyNoSeats = new Set();
+            let currentlyTrying = null;
+            let currentAttempt = null;
+
+            // Process logs in reverse order to find most recent "trying" status
+            for (let i = logs.length - 1; i >= 0; i--) {
+                const log = logs[i];
+
+                // Find the most recent "Attempting booking" message
+                if (!currentlyTrying && log.message &&
+                    (log.message.includes('Attempting booking for') || log.message.includes('Loading floor map for'))) {
+                    const dateMatch = log.message.match(/\d{4}-\d{2}-\d{2}/);
+                    const attemptMatch = log.message.match(/\((\d+)\/\d+\)/);
+                    if (dateMatch) {
+                        currentlyTrying = dateMatch[0];
+                        currentAttempt = attemptMatch ? attemptMatch[1] : null;
+                    }
+                }
+
+                // Collect all statuses
+                if (log.message && (
+                    log.message.includes('Successfully booked') ||
+                    log.message.includes('Booking verified') ||
+                    log.message.includes('SUCCESS: Booked') ||
+                    log.message.includes('Booked') ||
+                    log.message.includes('booking verified')
+                )) {
+                    const dateMatch = log.message.match(/\d{4}-\d{2}-\d{2}/);
+                    if (dateMatch) {
+                        recentlyBooked.add(dateMatch[0]);
+                    }
+                } else if (log.message && log.message.includes('Existing booking found')) {
+                    const dateMatch = log.message.match(/\d{4}-\d{2}-\d{2}/);
+                    if (dateMatch) {
+                        existingBookings.add(dateMatch[0]);
+                    }
+                } else if (log.message && (
+                    log.message.includes('No available desks') ||
+                    log.message.includes('no available desks') ||
+                    log.message.includes('No seats available') ||
+                    log.message.includes('Found 0 available desks') ||
+                    log.message.includes('No available desks for')
+                )) {
+                    const dateMatch = log.message.match(/\d{4}-\d{2}-\d{2}/);
+                    if (dateMatch) {
+                        recentlyNoSeats.add(dateMatch[0]);
+                    }
+                }
+            }
+
+            const container = document.getElementById('dates-status-list');
+            if (dates.length === 0) {
+                container.innerHTML = '<div class="text-muted small">No dates configured</div>';
+                return;
+            }
+
+            let html = '';
+            let bookedCount = 0;
+            let noSeatsCount = 0;
+
+            dates.slice(0, 10).forEach(date => {
+                // Check if booked (either in history, recent logs, or existing bookings)
+                const isBooked = booked.has(date) || recentlyBooked.has(date) || existingBookings.has(date);
+                const hasNoSeats = recentlyNoSeats.has(date);
+                const isTrying = currentlyTrying === date;
+
+                if (isBooked) bookedCount++;
+                if (hasNoSeats) noSeatsCount++;
+
+                let statusText;
+                let statusIcon = '[=]';
+
+                if (isTrying) {
+                    // Currently being attempted
+                    statusIcon = '[ ]';
+                    const attemptText = currentAttempt ? ` attempt ${currentAttempt}` : '';
+                    statusText = `<span class="text-warning">TRYING</span><span class="text-muted small">${attemptText}</span>`;
+                } else if (isBooked) {
+                    statusIcon = '[=]';
+                    statusText = '<span class="text-success">✓ BOOKED</span>';
+                } else if (hasNoSeats) {
+                    statusIcon = '[ ]';
+                    statusText = '<span class="text-warning">NO SEATS</span>';
+                } else {
+                    statusIcon = '[ ]';
+                    statusText = '<span class="text-info">PENDING</span>';
+                }
+
+                html += `<div class="d-flex justify-content-between mb-1">
+                    <span>${statusIcon} ${date}</span>
+                    <span>${statusText}</span>
+                </div>`;
+            });
+
+            if (dates.length > 10) {
+                html += `<div class="text-muted small mt-2">...and ${dates.length - 10} more dates</div>`;
+            }
+
+            container.innerHTML = html;
+
+            // Update summary
+            document.getElementById('summary-booked').textContent = bookedCount;
+            document.getElementById('session-dates-remaining').textContent = `${dates.length - bookedCount}/${dates.length}`;
+        } catch (error) {
+            console.error('Error loading config for dashboard:', error);
+        }
+    }
+
+    // Real-time uptime updater
+    function updateUptime() {
+        if (botStartTime) {
+            const now = new Date();
+            const uptimeSeconds = Math.floor((now - botStartTime) / 1000);
+            const hours = Math.floor(uptimeSeconds / 3600);
+            const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+            const seconds = uptimeSeconds % 60;
+
+            document.getElementById('uptime').textContent =
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+            document.getElementById('uptime').textContent = '00:00:00';
+        }
+    }
+
+    // Real-time countdown updater
+    function updateCountdown() {
+        if (currentCountdown && currentCountdown.endTime) {
+            const now = new Date();
+            const remaining = Math.max(0, Math.floor((currentCountdown.endTime - now) / 1000));
+
+            if (remaining > 0) {
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
+                const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                document.getElementById('session-next-check').textContent = timeStr;
+                document.getElementById('current-activity-countdown').textContent = `Countdown: ${timeStr}`;
+            } else {
+                document.getElementById('session-next-check').textContent = 'Now';
+                document.getElementById('current-activity-countdown').textContent = '';
+                currentCountdown = null;
+            }
+        } else {
+            document.getElementById('session-next-check').textContent = '--';
+            document.getElementById('current-activity-countdown').textContent = '';
+        }
+    }
+
+    // Extract countdown information from activity messages
+    function extractCountdownFromActivity(activity) {
+        if (activity && activity.includes('Waiting')) {
+            // Extract wait time from messages like "Waiting 60s before next round"
+            const match = activity.match(/waiting (\d+)s/i);
+            if (match) {
+                const seconds = parseInt(match[1]);
+                currentCountdown = {
+                    endTime: new Date(Date.now() + (seconds * 1000))
+                };
+            }
+        }
+    }
+
+    // Extract progress information from logs
+    function extractProgressFromLogs(logs) {
+        if (logs && logs.length > 0) {
+            // Look for progress patterns in recent logs
+            const recentLogs = logs.slice(-10); // Check last 10 logs
+
+            for (const log of recentLogs) {
+                if (log.message && log.message.includes('(') && log.message.includes('/')) {
+                    // Extract pattern like "Attempting booking for 2025-11-25 (2/5)"
+                    const match = log.message.match(/\((\d+)\/(\d+)\)/);
+                    if (match) {
+                        currentProgress.current = parseInt(match[1]);
+                        currentProgress.total = parseInt(match[2]);
+
+                        document.getElementById('current-date-progress').textContent = currentProgress.current;
+                        document.getElementById('total-dates-progress').textContent = currentProgress.total;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Extract progress information from activity messages
+    function extractProgressFromActivity(activity) {
+        if (activity && activity.includes('Processing dates:')) {
+            // Extract pattern like "Processing dates: 2/5"
+            const match = activity.match(/Processing dates: (\d+)\/(\d+)/);
+            if (match) {
+                currentProgress.current = parseInt(match[1]);
+                currentProgress.total = parseInt(match[2]);
+
+                document.getElementById('current-date-progress').textContent = currentProgress.current;
+                document.getElementById('total-dates-progress').textContent = currentProgress.total;
+            }
+        }
+    }
+
+    // Update logs display
+    function updateLogs(logs) {
+        const container = document.getElementById('logs-container');
+
+        container.innerHTML = logs.slice(-50).map(log => {
+            const levelClass = `log-${log.level || 'info'}`;
+            const time = new Date(log.timestamp).toLocaleTimeString();
+
+            return `
+                <div class="log-entry ${levelClass}">
+                    <span class="log-timestamp">[${time}]</span>
+                    <span>${escapeHtml(log.message)}</span>
+                </div>
+            `;
+        }).join('');
+
+        // Auto-scroll to bottom (only if checkbox is checked)
+        const autoScroll = document.getElementById('auto-scroll-checkbox');
+        if (autoScroll && autoScroll.checked) {
+            container.scrollTop = container.scrollHeight;
+        }
+    }
+
+    // Clear logs
+    function clearLogs() {
+        document.getElementById('logs-container').innerHTML = `
+            <div class="log-entry">
+                <span class="log-info">Logs cleared</span>
+            </div>
+        `;
+    }
+
+    // Start bot
+    async function startBot() {
+        try {
+            const startBtn = document.getElementById('start-btn');
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
+
+            const data = await apiCall('/api/bot/start', {method: 'POST'});
+
+            if (data.success) {
+                showToast('Bot started successfully!', 'success');
+            } else {
+                showToast(data.message || 'Failed to start bot', 'error');
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="bi bi-play-fill"></i> Start Bot';
+            }
+        } catch (error) {
+            showToast('Error starting bot: ' + error.message, 'error');
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').innerHTML = '<i class="bi bi-play-fill"></i> Start Bot';
+        }
+    }
+
+    // Stop bot
+    async function stopBot() {
+        try {
+            const stopBtn = document.getElementById('stop-btn');
+            stopBtn.disabled = true;
+            stopBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Stopping...';
+
+            const data = await apiCall('/api/bot/stop', {method: 'POST'});
+
+            if (data.success) {
+                showToast('Bot stopped successfully', 'info');
+            } else {
+                showToast(data.message || 'Failed to stop bot', 'error');
+            }
+        } catch (error) {
+            showToast('Error stopping bot: ' + error.message, 'error');
+        }
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+        if (statusUpdateInterval) clearInterval(statusUpdateInterval);
+        if (authCheckInterval) clearInterval(authCheckInterval);
+        if (uptimeInterval) clearInterval(uptimeInterval);
+        if (countdownInterval) clearInterval(countdownInterval);
+        if (recentBookingsInterval) clearInterval(recentBookingsInterval);
+    });
+</script>
+{% endblock %}

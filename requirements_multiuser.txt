@@ -1,0 +1,28 @@
+# SpaceIQ Multi-User Bot Platform - Requirements
+# Compatible with Python 3.13
+
+# Core Flask
+Flask>=3.0.0
+Flask-SQLAlchemy>=3.1.1
+Flask-Login>=0.6.3
+Flask-Limiter>=3.5.0
+
+# Database - Updated for Python 3.13 compatibility
+SQLAlchemy>=2.0.25
+greenlet>=3.1.0
+
+# Security
+Werkzeug>=3.0.1
+cryptography>=41.0.7
+bcrypt>=4.1.1
+
+# Browser Automation
+playwright>=1.40.0
+
+# Existing dependencies from original bot
+python-dotenv>=1.0.0
+supabase>=2.1.0
+
+# For future VNC support (optional)
+# websockify==0.11.0
+# pyvnc==1.1.0

@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-text"></i> Log Management
+                </h5>
+                <div>
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshLogs()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="cleanupLogs()">
+                        <i class="bi bi-trash"></i> Cleanup Old
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Log Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-total-logs">0</h4>
+                                <small>Total Logs</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-session-logs">0</h4>
+                                <small>Session Logs</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-web-logs">0</h4>
+                                <small>Web Logs</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-secondary text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-total-size">0 MB</h4>
+                                <small>Total Size</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <label for="filter-type" class="form-label">Log Type</label>
+                        <select class="form-select" id="filter-type" onchange="filterLogs()">
+                            <option value="">All Types</option>
+                            <option value="session">Session Logs</option>
+                            <option value="web">Web Interface Logs</option>
+                            <option value="other">Other Logs</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="search-filename" class="form-label">Search Filename</label>
+                        <input type="text" class="form-control" id="search-filename" placeholder="Search..." onkeyup="filterLogs()">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                            <i class="bi bi-x-circle"></i> Clear Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Log Files Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th onclick="sortLogs('name')" style="cursor: pointer;">
+                                    Filename <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th onclick="sortLogs('type')" style="cursor: pointer;">
+                                    Type <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th onclick="sortLogs('size')" style="cursor: pointer;">
+                                    Size <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th onclick="sortLogs('modified')" style="cursor: pointer;">
+                                    Modified <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-tbody">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div class="mt-2">Loading log files...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Log Viewer Modal -->
+<div class="modal fade" id="logViewerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-file-text"></i> Log Viewer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                    <div>
+                        <strong id="log-viewer-filename">filename.log</strong>
+                        <small class="text-muted ms-2" id="log-viewer-info"></small>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-primary btn-sm" onclick="downloadCurrentLog()">
+                            <i class="bi bi-download"></i> Download
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="refreshLogViewer()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="log-viewer-container">
+                    <pre id="log-viewer-content" class="log-viewer-content"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let allLogs = [];
+let filteredLogs = [];
+let currentLogFile = null;
+let sortField = 'modified';
+let sortDirection = 'desc';
+
+// Load logs when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadLogs();
+});
+
+async function loadLogs() {
+    try {
+        const response = await fetch('/api/logs');
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        allLogs = data.logs || [];
+        filteredLogs = [...allLogs];
+
+        displayLogs();
+        updateStatistics();
+    } catch (error) {
+        console.error('Failed to load logs:', error);
+        document.getElementById('logs-tbody').innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Failed to load logs: ${error.message}
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function displayLogs() {
+    const tbody = document.getElementById('logs-tbody');
+
+    if (filteredLogs.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted">
+                    <i class="bi bi-file-x"></i>
+                    No log files found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filteredLogs.map(log => `
+        <tr>
+            <td>
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-file-text me-2"></i>
+                    <span>${log.name}</span>
+                </div>
+            </td>
+            <td>
+                <span class="badge bg-${getTypeColor(log.type)}">
+                    ${log.type}
+                </span>
+            </td>
+            <td>${formatFileSize(log.size)}</td>
+            <td>${formatDateTime(log.modified)}</td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-outline-primary btn-sm" onclick="viewLog('${log.name}')" title="View">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="downloadLog('${log.name}')" title="Download">
+                        <i class="bi bi-download"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateStatistics() {
+    const stats = {
+        total: allLogs.length,
+        session: allLogs.filter(log => log.type === 'session').length,
+        web: allLogs.filter(log => log.type === 'web').length,
+        totalSize: allLogs.reduce((sum, log) => sum + log.size, 0)
+    };
+
+    document.getElementById('stat-total-logs').textContent = stats.total;
+    document.getElementById('stat-session-logs').textContent = stats.session;
+    document.getElementById('stat-web-logs').textContent = stats.web;
+    document.getElementById('stat-total-size').textContent = formatFileSize(stats.totalSize);
+}
+
+function getTypeColor(type) {
+    const colors = {
+        'session': 'primary',
+        'web': 'info',
+        'other': 'secondary'
+    };
+    return colors[type] || 'secondary';
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+function filterLogs() {
+    const typeFilter = document.getElementById('filter-type').value;
+    const searchFilter = document.getElementById('search-filename').value.toLowerCase();
+
+    filteredLogs = allLogs.filter(log => {
+        if (typeFilter && log.type !== typeFilter) return false;
+        if (searchFilter && !log.name.toLowerCase().includes(searchFilter)) return false;
+        return true;
+    });
+
+    displayLogs();
+}
+
+function clearFilters() {
+    document.getElementById('filter-type').value = '';
+    document.getElementById('search-filename').value = '';
+    filteredLogs = [...allLogs];
+    displayLogs();
+}
+
+function sortLogs(field) {
+    if (sortField === field) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField = field;
+        sortDirection = 'asc';
+    }
+
+    filteredLogs.sort((a, b) => {
+        let aVal = a[field];
+        let bVal = b[field];
+
+        if (field === 'size') {
+            aVal = parseInt(aVal);
+            bVal = parseInt(bVal);
+        } else if (field === 'modified') {
+            aVal = new Date(aVal);
+            bVal = new Date(bVal);
+        }
+
+        if (sortDirection === 'asc') {
+            return aVal > bVal ? 1 : -1;
+        } else {
+            return aVal < bVal ? 1 : -1;
+        }
+    });
+
+    displayLogs();
+}
+
+async function viewLog(filename) {
+    try {
+        const response = await fetch(`/api/logs/${encodeURIComponent(filename)}/view`);
+        const data = await response.json();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        currentLogFile = filename;
+
+        // Update modal
+        document.getElementById('log-viewer-filename').textContent = data.filename;
+        document.getElementById('log-viewer-info').textContent =
+            `${data.total_lines} lines${data.truncated ? ' (showing last 1000)' : ''}`;
+        document.getElementById('log-viewer-content').textContent = data.content;
+
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('logViewerModal'));
+        modal.show();
+
+    } catch (error) {
+        console.error('Failed to view log:', error);
+        showToast(`Failed to view log: ${error.message}`, 'error');
+    }
+}
+
+async function downloadLog(filename) {
+    try {
+        window.location.href = `/api/logs/${encodeURIComponent(filename)}`;
+    } catch (error) {
+        console.error('Failed to download log:', error);
+        showToast(`Failed to download log: ${error.message}`, 'error');
+    }
+}
+
+function downloadCurrentLog() {
+    if (currentLogFile) {
+        downloadLog(currentLogFile);
+    }
+}
+
+async function refreshLogViewer() {
+    if (currentLogFile) {
+        await viewLog(currentLogFile);
+    }
+}
+
+async function refreshLogs() {
+    await loadLogs();
+    showToast('Logs refreshed', 'info');
+}
+
+async function cleanupLogs() {
+    if (!confirm('Are you sure you want to delete log files older than 7 days? This action cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/logs/cleanup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, 'success');
+            await loadLogs();
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Failed to cleanup logs:', error);
+        showToast(`Failed to cleanup logs: ${error.message}`, 'error');
+    }
+}
+</script>
+
+<style>
+.log-viewer-container {
+    height: 500px;
+    overflow-y: auto;
+}
+
+.log-viewer-content {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    background-color: #1e1e1e;
+    color: #ffffff;
+    margin: 0;
+    padding: 1rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.log-viewer-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-viewer-container::-webkit-scrollbar-track {
+    background: #2d2d2d;
+}
+
+.log-viewer-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.log-viewer-container::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+.btn-group .btn {
+    border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+    border-top-left-radius: 0.375rem;
+    border-bottom-left-radius: 0.375rem;
+}
+
+.btn-group .btn:last-child {
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+</style>
+{% endblock %}

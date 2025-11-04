@@ -1,0 +1,1521 @@
+{% extends "base_multi.html" %}
+
+{% block title %}Configuration - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2 class="text-white">
+            <i class="bi bi-gear"></i> Bot Configuration
+        </h2>
+        <p class="text-white-50">Configure your desk booking preferences</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-sliders"></i> Settings
+                    </h5>
+                    <div class="d-flex align-items-center">
+                        <small class="me-2">
+                            <i class="bi bi-cloud-arrow-up"></i> Auto-save enabled
+                        </small>
+                        <div class="spinner-border spinner-border-sm d-none" id="manual-save-spinner" role="status">
+                            <span class="visually-hidden">Saving...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form id="config-form">
+                    <!-- Building & Floor -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="building" class="form-label">Building</label>
+                            <input type="text" class="form-control" id="building" required>
+                            <small class="text-muted">e.g., LC, HQ, etc.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="floor" class="form-label">Floor</label>
+                            <input type="text" class="form-control" id="floor" required>
+                            <small class="text-muted">e.g., 2, 3, etc.</small>
+                        </div>
+                    </div>
+
+                    <!-- Desk Prefix -->
+                    <div class="mb-4">
+                        <label for="desk-prefix" class="form-label">Desk Prefix</label>
+                        <input type="text" class="form-control" id="desk-prefix" placeholder="e.g., 2.24">
+                        <small class="text-muted">Only book desks starting with this prefix</small>
+                    </div>
+
+                    <!-- Priority Ranges -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2" style="cursor: pointer;" onclick="toggleMasterPrioritySection()">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-chevron-right me-2" id="master-priority-icon"></i>
+                                <label class="form-label mb-0">Priority Desk Ranges</label>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); toggleMasterPrioritySection()" title="Toggle Section">
+                                <i class="bi bi-chevron-right" id="master-priority-toggle-icon"></i>
+                            </button>
+                        </div>
+
+                        <!-- Master collapsible section -->
+                        <div id="master-priority-section" style="display: none;">
+                            <div class="d-flex justify-content-end mb-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="toggleAllPriorityRanges(true)" title="Expand All Ranges">
+                                    <i class="bi bi-arrows-expand"></i> Expand All
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleAllPriorityRanges(false)" title="Collapse All Ranges">
+                                    <i class="bi bi-arrows-collapse"></i> Collapse All
+                                </button>
+                            </div>
+
+                            <div id="priority-ranges-container">
+                                <!-- Ranges will be added dynamically -->
+                            </div>
+
+                            <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="addPriorityRange()">
+                                <i class="bi bi-plus-circle"></i> Add Priority Range
+                            </button>
+                            <small class="text-muted d-block mt-2">
+                                Define your preferred desk areas in order of priority. Format: 2.24.01-2.24.20
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Dates to Book -->
+                    <div class="mb-4">
+                        <label class="form-label">Dates to Book</label>
+                        <div class="input-group mb-2">
+                            <input type="date" class="form-control" id="new-date"
+                                   title="Select a date within the next 29 days">
+                            <button type="button" class="btn btn-outline-primary" onclick="addDate()">
+                                <i class="bi bi-plus"></i> Add Date
+                            </button>
+                        </div>
+                        <div id="dates-list" class="border rounded p-2 mb-2" style="min-height: 100px; max-height: 200px; overflow-y: auto;">
+                            <!-- Dates will be listed here -->
+                        </div>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="generateWeekDates()">
+                            <i class="bi bi-calendar-check"></i> Auto-Generate Available Dates
+                        </button>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-lightbulb"></i> Generates dates based on selected weekdays below (no need to save first)<br>
+                            <i class="bi bi-info-circle"></i> Preserves manual dates • Respects ignore dates • Click <i class="bi bi-ban"></i> to ignore a date
+                        </small>
+                    </div>
+
+                    <!-- Booking Days -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            Regular Booking Days
+                            <small class="text-muted">(Used by "Auto-Generate Available Dates" above)</small>
+                        </label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="0" id="day-0">
+                                    <label class="form-check-label" for="day-0">Monday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="1" id="day-1">
+                                    <label class="form-check-label" for="day-1">Tuesday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="2" id="day-2">
+                                    <label class="form-check-label" for="day-2">Wednesday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="3" id="day-3">
+                                    <label class="form-check-label" for="day-3">Thursday</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="4" id="day-4">
+                                    <label class="form-check-label" for="day-4">Friday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="5" id="day-5">
+                                    <label class="form-check-label" for="day-5">Saturday</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="6" id="day-6">
+                                    <label class="form-check-label" for="day-6">Sunday</label>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted">Used for auto-generating dates. Dates will be auto-calculated when you save config (respecting ignore dates).</small>
+                    </div>
+
+                    <!-- Ignore Dates -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            Ignore Dates
+                            <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top"
+                               title="These dates will be ignored by the auto-generate option and won't be included in generated dates."></i>
+                        </label>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" id="new-blacklist"
+                                   placeholder="YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD">
+                            <button type="button" class="btn btn-outline-danger" onclick="addBlacklistDate()">
+                                <i class="bi bi-ban"></i> Add to Ignore List
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small class="text-muted">Dates and ranges to ignore during auto-generation</small>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllBlacklistDates()" id="clear-blacklist-btn" style="display: none;">
+                            <i class="bi bi-trash3"></i> Clear All
+                        </button>
+                    </div>
+                    <div id="blacklist-list" class="border rounded p-2 mb-2" style="min-height: 80px; max-height: 150px; overflow-y: auto;">
+                        <!-- Ignore dates will be listed here -->
+                    </div>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-info-circle"></i>
+                            Add single dates (2025-12-25) or ranges (2025-12-24:2025-12-31).
+                            These dates will be excluded from auto-generation. Works with both auto-generated and manual dates.
+                        </small>
+                    </div>
+
+                    <!-- Wait Times -->
+                    <div class="mb-4">
+                        <label class="form-label">Wait Times Between Rounds</label>
+                        <div id="wait-times-container">
+                            <div class="row mb-3" id="wait-time-1">
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rounds From</label>
+                                    <input type="number" class="form-control form-control-sm" id="wait-from-1" min="1" max="999" value="1">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rounds To</label>
+                                    <input type="number" class="form-control form-control-sm" id="wait-to-1" min="1" max="999" value="5">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Wait Time</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="wait-value-1" min="1" max="999" value="1">
+                                        <select class="form-select form-select-sm" id="wait-unit-1" style="max-width: 100px;">
+                                            <option value="seconds">Seconds</option>
+                                            <option value="minutes">Minutes</option>
+                                            <option value="hours">Hours</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeWaitTime(1)" id="remove-wait-1" style="display: none;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row mb-3" id="wait-time-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rounds From</label>
+                                    <input type="number" class="form-control form-control-sm" id="wait-from-2" min="1" max="999" value="6">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rounds To</label>
+                                    <input type="number" class="form-control form-control-sm" id="wait-to-2" min="1" max="999" value="15">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Wait Time</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="wait-value-2" min="1" max="999" value="2">
+                                        <select class="form-select form-select-sm" id="wait-unit-2" style="max-width: 100px;">
+                                            <option value="seconds">Seconds</option>
+                                            <option value="minutes" selected>Minutes</option>
+                                            <option value="hours">Hours</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeWaitTime(2)" id="remove-wait-2">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row mb-3" id="wait-time-3">
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rounds From</label>
+                                    <input type="number" class="form-control form-control-sm" id="wait-from-3" min="1" max="999" value="16">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Rounds To</label>
+                                    <input type="number" class="form-control form-control-sm" id="wait-to-3" min="1" max="999" value="">
+                                    <small class="text-muted">Leave empty for "to infinity"</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Wait Time</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" class="form-control" id="wait-value-3" min="1" max="999" value="3">
+                                        <select class="form-select form-select-sm" id="wait-unit-3" style="max-width: 100px;">
+                                            <option value="seconds">Seconds</option>
+                                            <option value="minutes" selected>Minutes</option>
+                                            <option value="hours">Hours</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeWaitTime(3)" id="remove-wait-3">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addWaitTime()">
+                            <i class="bi bi-plus-circle"></i> Add Wait Time Range
+                        </button>
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle"></i>
+                            Define custom round ranges with different wait times. Example: Rounds 1-5: 60s (aggressive), Rounds 6-15: 120s (moderate), Rounds 16+: 180s (conservative)
+                        </small>
+                    </div>
+
+                    <!-- Browser Restart -->
+                    <div class="mb-4">
+                        <label for="browser-restart" class="form-label">Browser Restart Interval</label>
+                        <div class="input-group">
+                            <span class="input-group-text">Restart every</span>
+                            <input type="number" class="form-control" id="browser-restart" min="10" max="200">
+                            <span class="input-group-text">rounds</span>
+                        </div>
+                        <small class="text-muted">Prevents browser timeouts in long-running sessions</small>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-save"></i> Save Now (Optional - Auto-save is enabled)
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Sidebar -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-question-circle"></i> Quick Help
+                </h6>
+            </div>
+            <div class="card-body">
+                <h6>Building & Floor</h6>
+                <p class="small">The building code and floor number for your office location.</p>
+
+                <h6>Desk Prefix</h6>
+                <p class="small">Only desks matching this prefix will be considered for booking.</p>
+
+                <h6>Priority Ranges</h6>
+                <p class="small">Define your preferred desk areas. The bot will try Priority 1 first, then Priority 2, and so on.</p>
+
+                <h6>Dates</h6>
+                <p class="small">Specific dates to attempt booking. You can add manually or auto-generate.</p>
+
+                <h6>Booking Days</h6>
+                <p class="small">When auto-generating, only these weekdays will be included.</p>
+
+                <h6>Wait Times</h6>
+                <p class="small">How long to wait between booking attempts. Early rounds are more aggressive.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-lightbulb"></i> Pro Tips
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="small mb-0">
+                    <li>Set up priority ranges based on your preferred seating areas</li>
+                    <li>Auto-generate dates for the next month to ensure you don't miss any bookings</li>
+                    <li>Keep wait times reasonable to avoid being rate-limited</li>
+                    <li>Test with a single date first before adding multiple dates</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentConfig = {};
+    let priorityRangeCount = 0;
+    let autoSaveTimeout;
+    let isAutoSaving = false;
+    let pendingChanges = false;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadConfiguration();
+        setDatePickerLimits();
+
+        // Form submit handler
+        document.getElementById('config-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveConfiguration();
+        });
+
+        // Auto-save setup
+        setupAutoSave();
+
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    // ========== Configuration Validation Functions ==========
+
+    /**
+     * Validate entire configuration before saving
+     * Returns {isValid: boolean, errors: string[]}
+     */
+    function validateConfiguration(config) {
+        const errors = [];
+
+        // Validate building
+        if (!config.building || config.building.trim() === '') {
+            errors.push('Building is required');
+        } else if (config.building.length > 50) {
+            errors.push('Building name is too long (max 50 characters)');
+        }
+
+        // Validate floor
+        if (!config.floor || config.floor.trim() === '') {
+            errors.push('Floor is required');
+        } else if (config.floor.length > 20) {
+            errors.push('Floor value is too long (max 20 characters)');
+        }
+
+        // Validate desk prefix
+        if (config.desk_preferences && config.desk_preferences.prefix) {
+            const prefix = config.desk_preferences.prefix;
+            if (prefix.length > 50) {
+                errors.push('Desk prefix is too long (max 50 characters)');
+            }
+        }
+
+        // Validate priority ranges
+        if (config.desk_preferences && config.desk_preferences.priority_ranges) {
+            const ranges = config.desk_preferences.priority_ranges;
+
+            if (ranges.length === 0) {
+                errors.push('At least one priority desk range is required');
+            }
+
+            ranges.forEach((rangeObj, index) => {
+                if (!rangeObj.range || rangeObj.range.trim() === '') {
+                    errors.push(`Priority ${index + 1}: Range value is empty`);
+                } else if (rangeObj.range.length > 100) {
+                    errors.push(`Priority ${index + 1}: Range value is too long`);
+                }
+
+                // Validate range format (should be like "2.24" or "3.10-3.20")
+                const rangePattern = /^[\d\.\-,\s]+$/;
+                if (!rangePattern.test(rangeObj.range)) {
+                    errors.push(`Priority ${index + 1}: Invalid range format (use numbers, dots, dashes, commas)`);
+                }
+            });
+        }
+
+        // Validate booking days
+        if (!config.booking_days || !config.booking_days.weekdays || config.booking_days.weekdays.length === 0) {
+            errors.push('At least one booking day must be selected');
+        }
+
+        // Validate dates
+        if (config.dates_to_try && config.dates_to_try.length > 0) {
+            config.dates_to_try.forEach((date, index) => {
+                if (!isValidDate(date)) {
+                    errors.push(`Invalid date format at position ${index + 1}: ${date}`);
+                }
+            });
+        }
+
+        // Validate blacklist dates
+        if (config.blacklist_dates && config.blacklist_dates.length > 0) {
+            config.blacklist_dates.forEach((entry, index) => {
+                if (entry.includes(':')) {
+                    // Date range
+                    const [start, end] = entry.split(':');
+                    if (!isValidDate(start.trim())) {
+                        errors.push(`Blacklist ${index + 1}: Invalid start date in range: ${start}`);
+                    }
+                    if (!isValidDate(end.trim())) {
+                        errors.push(`Blacklist ${index + 1}: Invalid end date in range: ${end}`);
+                    }
+                } else {
+                    // Single date
+                    if (!isValidDate(entry.trim())) {
+                        errors.push(`Blacklist ${index + 1}: Invalid date: ${entry}`);
+                    }
+                }
+            });
+        }
+
+        // Validate wait times
+        if (config.wait_times && config.wait_times.length > 0) {
+            config.wait_times.forEach((waitTime, index) => {
+                const from = waitTime.attempt_range[0];
+                const to = waitTime.attempt_range[1];
+                const wait = waitTime.wait_seconds;
+
+                if (from < 1 || from > 999) {
+                    errors.push(`Wait time ${index + 1}: 'From' value must be between 1 and 999`);
+                }
+                if (to !== null && (to < from || to > 999)) {
+                    errors.push(`Wait time ${index + 1}: 'To' value must be >= 'From' and <= 999`);
+                }
+                if (wait < 1 || wait > 999) {
+                    errors.push(`Wait time ${index + 1}: Wait seconds must be between 1 and 999`);
+                }
+            });
+        }
+
+        // Validate browser restart interval
+        if (config.browser_restart && config.browser_restart.restart_every_n_rounds) {
+            const interval = config.browser_restart.restart_every_n_rounds;
+            if (isNaN(interval) || interval < 10 || interval > 200) {
+                errors.push('Browser restart interval must be between 10 and 200 rounds');
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    /**
+     * Validate date format (YYYY-MM-DD)
+     */
+    function isValidDate(dateString) {
+        if (!dateString || typeof dateString !== 'string') {
+            return false;
+        }
+
+        const pattern = /^\d{4}-\d{2}-\d{2}$/;
+        if (!pattern.test(dateString)) {
+            return false;
+        }
+
+        const date = new Date(dateString);
+        return date instanceof Date && !isNaN(date);
+    }
+
+    /**
+     * Display validation errors to the user
+     */
+    function showValidationErrors(errors) {
+        const errorHtml = errors.map(err => `<li>${err}</li>`).join('');
+        showToast(`
+            <strong>Configuration Validation Failed:</strong>
+            <ul class="mb-0 mt-2">
+                ${errorHtml}
+            </ul>
+        `, 'error', 8000);  // Show for 8 seconds
+    }
+
+    /**
+     * Add visual feedback for invalid fields
+     */
+    function highlightInvalidField(fieldId) {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.classList.add('is-invalid');
+            setTimeout(() => {
+                field.classList.remove('is-invalid');
+            }, 3000);
+        }
+    }
+
+    // ========== End Validation Functions ==========
+
+    // Auto-save setup
+    function setupAutoSave() {
+        console.log('🔧 Setting up auto-save...');
+
+        // Text inputs and selects
+        const textInputs = document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]');
+        console.log(`📝 Found ${textInputs.length} text/number/date inputs`);
+        textInputs.forEach(input => {
+            input.addEventListener('input', triggerAutoSave);
+            input.addEventListener('change', triggerAutoSave);
+        });
+
+        // Checkboxes
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        console.log(`☑️ Found ${checkboxes.length} checkboxes`);
+        checkboxes.forEach((checkbox, index) => {
+            console.log(`   Adding auto-save to checkbox ${index + 1}: ${checkbox.id || checkbox.name}`);
+            checkbox.addEventListener('change', triggerAutoSave);
+        });
+
+        // Priority range inputs (dynamic elements)
+        document.addEventListener('input', function(e) {
+            if (e.target.matches('input[id^="range-"]')) {
+                triggerAutoSave();
+            }
+        });
+
+        // Date list and blacklist changes
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('button[onclick^="removeDate"], button[onclick^="removeBlacklistDate"], button[onclick^="addDate"], button[onclick^="addBlacklistDate"], button[onclick^="generateWeekDates"]')) {
+                // Small delay to let the DOM update
+                setTimeout(triggerAutoSave, 100);
+            }
+        });
+    }
+
+    // Trigger auto-save immediately (no debounce for instant feedback)
+    function triggerAutoSave() {
+        console.log('🔄 Auto-save triggered');
+
+        if (isAutoSaving) {
+            console.log('⏳ Auto-save already in progress, marking as pending');
+            pendingChanges = true;
+            return;
+        }
+
+        // Clear existing timeout
+        if (autoSaveTimeout) {
+            clearTimeout(autoSaveTimeout);
+        }
+
+        // Execute auto-save immediately
+        showAutoSaveIndicator('Saving...');
+        console.log('💾 Auto-save executing immediately...');
+        autoSaveConfiguration();
+    }
+
+    // Auto-save configuration
+    async function autoSaveConfiguration() {
+        if (isAutoSaving) {
+            console.log('⏭️ Auto-save already running, skipping');
+            return;
+        }
+
+        console.log('🚀 Starting auto-save configuration...');
+        isAutoSaving = true;
+        showAutoSaveIndicator('Saving...');
+
+        try {
+            const config = collectWaitTimes();
+            console.log('📊 Config being saved:', config);
+            await saveConfigurationSilent();
+            showAutoSaveIndicator('Saved!', 'success');
+            console.log('✅ Auto-save completed successfully');
+
+            // If there were pending changes during save, save again
+            if (pendingChanges) {
+                pendingChanges = false;
+                setTimeout(triggerAutoSave, 1000);
+            }
+
+        } catch (error) {
+            showAutoSaveIndicator('Save failed', 'error');
+            console.error('Auto-save failed:', error);
+        } finally {
+            isAutoSaving = false;
+
+            // Hide indicator after 3 seconds
+            setTimeout(() => {
+                if (!isAutoSaving && !pendingChanges) {
+                    hideAutoSaveIndicator();
+                }
+            }, 3000);
+        }
+    }
+
+    // Silent save without toast notifications
+    async function saveConfigurationSilent() {
+        // Collect priority ranges
+        const priorityRanges = [];
+        for (let i = 1; i <= priorityRangeCount; i++) {
+            const rangeElement = document.getElementById(`range-${i}-value`);
+            const reasonElement = document.getElementById(`range-${i}-reason`);
+
+            if (rangeElement && rangeElement.value.trim()) {
+                priorityRanges.push({
+                    range: rangeElement.value.trim(),
+                    priority: priorityRanges.length + 1,
+                    reason: reasonElement ? reasonElement.value.trim() : ''
+                });
+            }
+        }
+
+        // Collect booking days
+        const bookingDays = [];
+        for (let i = 0; i < 7; i++) {
+            if (document.getElementById(`day-${i}`).checked) {
+                bookingDays.push(i);
+            }
+        }
+
+        // Build configuration object
+        const config = {
+            building: document.getElementById('building').value.trim(),
+            floor: document.getElementById('floor').value.trim(),
+            desk_preferences: {
+                prefix: document.getElementById('desk-prefix').value.trim(),
+                priority_ranges: priorityRanges
+            },
+            dates_to_try: getCurrentDates(),
+            booking_days: {
+                weekdays: bookingDays
+            },
+            blacklist_dates: getCurrentBlacklist(),
+            wait_times: collectWaitTimes(),
+            browser_restart: {
+                restart_every_n_rounds: parseInt(document.getElementById('browser-restart').value)
+            }
+        };
+
+        // Save to server
+        const response = await apiCall('/api/config', {
+            method: 'POST',
+            body: JSON.stringify(config)
+        });
+
+        if (response.success) {
+            // Reload configuration to get updated dates if they were auto-calculated
+            if (response.dates_to_try) {
+                updateDatesList(response.dates_to_try);
+            }
+        } else {
+            throw new Error(response.message || 'Failed to save configuration');
+        }
+    }
+
+    // Show auto-save indicator
+    function showAutoSaveIndicator(text, type = 'info') {
+        let indicator = document.getElementById('auto-save-indicator');
+
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'auto-save-indicator';
+            indicator.style.cssText = `
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                z-index: 9999;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                border: 2px solid transparent;
+            `;
+            document.body.appendChild(indicator);
+        }
+
+        indicator.textContent = text;
+
+        // Set color based on type
+        const colors = {
+            'info': { bg: '#007bff', text: '#ffffff', border: '#0056b3' },
+            'success': { bg: '#28a745', text: '#ffffff', border: '#1e7e34' },
+            'error': { bg: '#dc3545', text: '#ffffff', border: '#bd2130' }
+        };
+
+        const colorscheme = colors[type] || colors.info;
+        indicator.style.backgroundColor = colorscheme.bg;
+        indicator.style.color = colorscheme.text;
+        indicator.style.borderColor = colorscheme.border;
+        indicator.style.opacity = '1';
+        indicator.style.transform = 'scale(1.05)';
+
+        // Add subtle animation
+        setTimeout(() => {
+            indicator.style.transform = 'scale(1)';
+        }, 100);
+    }
+
+    // Hide auto-save indicator
+    function hideAutoSaveIndicator() {
+        const indicator = document.getElementById('auto-save-indicator');
+        if (indicator) {
+            indicator.style.opacity = '0';
+            setTimeout(() => {
+                if (indicator.parentNode) {
+                    indicator.parentNode.removeChild(indicator);
+                }
+            }, 300);
+        }
+    }
+
+    // Set date picker min/max limits (today to today+29 days)
+    function setDatePickerLimits() {
+        const dateInput = document.getElementById('new-date');
+
+        // Today
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+
+        // Today + 29 days
+        const maxDate = new Date(today.getTime() + (29 * 24 * 60 * 60 * 1000));
+        const maxDateStr = maxDate.toISOString().split('T')[0];
+
+        dateInput.min = todayStr;
+        dateInput.max = maxDateStr;
+
+        // Update title to show the range
+        const maxFormatted = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        dateInput.title = `Select a date from today through ${maxFormatted} (29-day booking window)`;
+    }
+
+    // Load configuration
+    async function loadConfiguration() {
+        try {
+            currentConfig = await apiCall('/api/config');
+
+            // Building & Floor
+            document.getElementById('building').value = currentConfig.building || 'LC';
+            document.getElementById('floor').value = currentConfig.floor || '2';
+
+            // Desk preferences
+            const deskPrefs = currentConfig.desk_preferences || {};
+            document.getElementById('desk-prefix').value = deskPrefs.prefix || '';
+
+            // Priority ranges
+            priorityRangeCount = 0;
+            document.getElementById('priority-ranges-container').innerHTML = '';
+            if (deskPrefs.priority_ranges && deskPrefs.priority_ranges.length > 0) {
+                deskPrefs.priority_ranges.forEach(range => {
+                    addPriorityRange(range.range, range.reason);
+                });
+            } else {
+                addPriorityRange(); // Add one empty range
+            }
+
+            // Dates
+            updateDatesList(currentConfig.dates_to_try || []);
+
+            // Blacklist dates
+            updateBlacklistList(currentConfig.blacklist_dates || []);
+
+            // Booking days
+            const bookingDays = currentConfig.booking_days?.weekdays || [2, 3];
+            for (let i = 0; i < 7; i++) {
+                document.getElementById(`day-${i}`).checked = bookingDays.includes(i);
+            }
+
+            // Wait times - load flexible format
+            loadWaitTimes(currentConfig.wait_times || {});
+
+            // Browser restart
+            const browserRestart = currentConfig.browser_restart || {};
+            document.getElementById('browser-restart').value = browserRestart.restart_every_n_rounds || 50;
+
+        } catch (error) {
+            showToast('Error loading configuration: ' + error.message, 'error');
+        }
+    }
+
+    // Add priority range
+    function addPriorityRange(rangeValue = '', reasonValue = '') {
+        priorityRangeCount++;
+        const priority = priorityRangeCount;
+
+        const container = document.getElementById('priority-ranges-container');
+        const rangeDiv = document.createElement('div');
+        rangeDiv.className = 'card mb-2';
+        rangeDiv.id = `range-${priority}`;
+        rangeDiv.innerHTML = `
+            <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center" style="cursor: pointer;" onclick="togglePriorityRange(${priority})">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-chevron-right me-2" id="range-${priority}-icon"></i>
+                    <h6 class="mb-0">Priority ${priority}</h6>
+                </div>
+                <div class="d-flex align-items-center">
+                    <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="event.stopPropagation(); togglePriorityRange(${priority})" title="Toggle">
+                        <i class="bi bi-chevron-right" id="range-${priority}-toggle-icon"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); removePriorityRange(${priority})" title="Remove">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-3" id="range-${priority}-body" style="display: none;">
+                <div class="mb-2">
+                    <input type="text" class="form-control form-control-sm" id="range-${priority}-value"
+                           placeholder="e.g., 2.24.01-2.24.20" value="${rangeValue}">
+                </div>
+                <div>
+                    <input type="text" class="form-control form-control-sm" id="range-${priority}-reason"
+                           placeholder="Reason (optional)" value="${reasonValue}">
+                </div>
+            </div>
+        `;
+        container.appendChild(rangeDiv);
+    }
+
+    // Toggle individual priority range
+    function togglePriorityRange(priority) {
+        const body = document.getElementById(`range-${priority}-body`);
+        const icon = document.getElementById(`range-${priority}-icon`);
+        const toggleIcon = document.getElementById(`range-${priority}-toggle-icon`);
+
+        if (body.style.display === 'none') {
+            // Expand
+            body.style.display = 'block';
+            icon.className = 'bi bi-chevron-down me-2';
+            toggleIcon.className = 'bi bi-chevron-down';
+        } else {
+            // Collapse
+            body.style.display = 'none';
+            icon.className = 'bi bi-chevron-right me-2';
+            toggleIcon.className = 'bi bi-chevron-right';
+        }
+    }
+
+    // Toggle master priority section
+    function toggleMasterPrioritySection() {
+        const section = document.getElementById('master-priority-section');
+        const icon = document.getElementById('master-priority-icon');
+        const toggleIcon = document.getElementById('master-priority-toggle-icon');
+
+        if (section.style.display === 'none' || section.style.display === '') {
+            // Expand
+            section.style.display = 'block';
+            icon.className = 'bi bi-chevron-down me-2';
+            toggleIcon.className = 'bi bi-chevron-down';
+        } else {
+            // Collapse
+            section.style.display = 'none';
+            icon.className = 'bi bi-chevron-right me-2';
+            toggleIcon.className = 'bi bi-chevron-right';
+        }
+    }
+
+    // Toggle all priority ranges
+    function toggleAllPriorityRanges(expand) {
+        const ranges = document.querySelectorAll('[id^="range-"][id$="-body"]');
+
+        ranges.forEach(range => {
+            const priority = range.id.replace('-body', '');
+            const icon = document.getElementById(`range-${priority}-icon`);
+            const toggleIcon = document.getElementById(`range-${priority}-toggle-icon`);
+
+            if (expand) {
+                // Expand all
+                range.style.display = 'block';
+                if (icon) icon.className = 'bi bi-chevron-down me-2';
+                if (toggleIcon) toggleIcon.className = 'bi bi-chevron-down';
+            } else {
+                // Collapse all
+                range.style.display = 'none';
+                if (icon) icon.className = 'bi bi-chevron-right me-2';
+                if (toggleIcon) toggleIcon.className = 'bi bi-chevron-right';
+            }
+        });
+    }
+
+    // Remove priority range
+    function removePriorityRange(priority) {
+        const rangeDiv = document.getElementById(`range-${priority}`);
+        if (rangeDiv) {
+            rangeDiv.remove();
+        }
+    }
+
+    // Add date
+    function addDate() {
+        const dateInput = document.getElementById('new-date');
+        const date = dateInput.value;
+
+        if (!date) {
+            showToast('Please select a date', 'warning');
+            return;
+        }
+
+        // Validate date is within 29-day window
+        const selectedDate = new Date(date + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const maxDate = new Date(today.getTime() + (29 * 24 * 60 * 60 * 1000));
+
+        if (selectedDate < today) {
+            showToast('Cannot add past dates', 'warning');
+            return;
+        }
+
+        if (selectedDate > maxDate) {
+            const maxFormatted = maxDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            showToast(`Date must be within 29 days (through ${maxFormatted})`, 'warning');
+            return;
+        }
+
+        const currentDates = getCurrentDates();
+        if (currentDates.includes(date)) {
+            showToast('Date already added', 'warning');
+            return;
+        }
+
+        currentDates.push(date);
+        currentDates.sort().reverse(); // Sort descending
+        updateDatesList(currentDates);
+
+        dateInput.value = '';
+        showToast(`Added ${date}`, 'success');
+    }
+
+    // Remove date and add to ignore list
+    function removeDate(date) {
+        // Add to ignore list
+        const currentBlacklist = getCurrentBlacklist();
+        if (!currentBlacklist.includes(date)) {
+            currentBlacklist.push(date);
+            updateBlacklistList(currentBlacklist);
+        }
+
+        // Remove from dates list
+        const currentDates = getCurrentDates();
+        const index = currentDates.indexOf(date);
+        if (index > -1) {
+            currentDates.splice(index, 1);
+        }
+        updateDatesList(currentDates);
+
+        showToast(`Removed ${date} and added to ignore list`, 'info');
+    }
+
+    // Get current dates from UI
+    function getCurrentDates() {
+        const dateElements = document.querySelectorAll('[data-date]');
+        return Array.from(dateElements).map(el => el.getAttribute('data-date'));
+    }
+
+    // Update dates list display
+    function updateDatesList(dates) {
+        const container = document.getElementById('dates-list');
+        if (dates.length === 0) {
+            container.innerHTML = '<p class="text-muted small mb-0">No dates added yet</p>';
+        } else {
+            container.innerHTML = dates.map(date => `
+                <div class="d-flex justify-content-between align-items-center mb-1 p-1" data-date="${date}">
+                    <span>${date}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeDate('${date}')"
+                            title="Remove and add to ignore list">
+                        <i class="bi bi-ban"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Generate dates for next 29 days (reads weekdays from UI - no need to save first!)
+    function generateWeekDates() {
+        // Read selected weekdays directly from UI checkboxes
+        const selectedDays = [];
+        for (let i = 0; i < 7; i++) {
+            if (document.getElementById(`day-${i}`).checked) {
+                selectedDays.push(i);
+            }
+        }
+
+        if (selectedDays.length === 0) {
+            showToast('Please select at least one weekday in "Regular Booking Days" section below', 'warning');
+            return;
+        }
+
+        // Get existing manual dates (dates not in the selected weekdays)
+        const existingDates = getCurrentDates();
+        const manualDates = new Set();
+
+        existingDates.forEach(dateStr => {
+            const date = new Date(dateStr + 'T00:00:00');
+            const dayOfWeek = convertJsDayToHtmlDay(date.getDay());
+
+            // If this date is NOT on a selected weekday, it's manual
+            if (!selectedDays.includes(dayOfWeek)) {
+                manualDates.add(dateStr);
+            }
+        });
+
+        // Get ignore dates and parse them
+        const ignoreDates = parseIgnoreDates(getCurrentBlacklist());
+
+        // Generate auto dates for next 29 days
+        const autoDates = new Set();
+        const today = new Date();
+        const endDate = new Date(today.getTime() + (29 * 24 * 60 * 60 * 1000)); // 29 days ahead
+
+        let currentDate = new Date(today);
+        while (currentDate <= endDate) {
+            if (selectedDays.includes(convertJsDayToHtmlDay(currentDate.getDay()))) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                // Only add if not in ignore list
+                if (!ignoreDates.has(dateStr)) {
+                    autoDates.add(dateStr);
+                }
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Merge auto-generated with manual dates (remove ignored manual dates)
+        const allDates = new Set([...autoDates]);
+        manualDates.forEach(dateStr => {
+            if (!ignoreDates.has(dateStr)) {
+                allDates.add(dateStr);
+            }
+        });
+
+        const datesList = Array.from(allDates).sort().reverse();
+        updateDatesList(datesList);
+
+        const autoCount = autoDates.size;
+        const manualCount = Array.from(manualDates).filter(d => !ignoreDates.has(d)).length;
+        const ignoredCount = ignoreDates.size;
+
+        let message = `Generated ${autoCount} dates for selected weekdays`;
+        if (manualCount > 0) message += `, kept ${manualCount} manual`;
+        if (ignoredCount > 0) message += `, excluded ${ignoredCount} ignored`;
+
+        showToast(message, 'success');
+    }
+
+    // Convert JavaScript day (Sunday=0) to HTML day (Monday=0)
+    function convertJsDayToHtmlDay(jsDay) {
+        // JavaScript: Sunday=0, Monday=1, Tuesday=2, Wednesday=3, Thursday=4, Friday=5, Saturday=6
+        // HTML:      Monday=0, Tuesday=1, Wednesday=2, Thursday=3, Friday=4, Saturday=5, Sunday=6
+        return jsDay === 0 ? 6 : jsDay - 1;
+    }
+
+    // Wait time management
+    let waitTimeCount = 3;
+
+    function addWaitTime() {
+        waitTimeCount++;
+        const container = document.getElementById('wait-times-container');
+
+        const waitTimeDiv = document.createElement('div');
+        waitTimeDiv.className = 'row mb-3';
+        waitTimeDiv.id = `wait-time-${waitTimeCount}`;
+
+        waitTimeDiv.innerHTML = `
+            <div class="col-md-3">
+                <label class="form-label small">Rounds From</label>
+                <input type="number" class="form-control form-control-sm" id="wait-from-${waitTimeCount}" min="1" max="999" value="">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Rounds To</label>
+                <input type="number" class="form-control form-control-sm" id="wait-to-${waitTimeCount}" min="1" max="999" value="">
+                <small class="text-muted">Leave empty for "to infinity"</small>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Wait Time</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control" id="wait-value-${waitTimeCount}" min="1" max="999" value="">
+                    <select class="form-select form-select-sm" id="wait-unit-${waitTimeCount}" style="max-width: 100px;">
+                        <option value="seconds">Seconds</option>
+                        <option value="minutes">Minutes</option>
+                        <option value="hours">Hours</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeWaitTime(${waitTimeCount})" id="remove-wait-${waitTimeCount}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+
+        container.appendChild(waitTimeDiv);
+        updateRemoveButtons();
+    }
+
+    function removeWaitTime(id) {
+        if (waitTimeCount <= 1) {
+            showToast('Must have at least one wait time range', 'warning');
+            return;
+        }
+
+        const element = document.getElementById(`wait-time-${id}`);
+        if (element) {
+            element.remove();
+        }
+
+        updateRemoveButtons();
+    }
+
+    function updateRemoveButtons() {
+        const waitTimes = document.querySelectorAll('[id^="wait-time-"]');
+        waitTimes.forEach((element, index) => {
+            const removeBtn = element.querySelector('[id^="remove-wait-"]');
+            if (removeBtn) {
+                removeBtn.style.display = waitTimes.length > 1 ? 'block' : 'none';
+            }
+        });
+    }
+
+    function loadWaitTimes(waitTimes) {
+        const container = document.getElementById('wait-times-container');
+        container.innerHTML = '';
+        waitTimeCount = 0;
+
+        // Default wait times if no configuration exists
+        if (Object.keys(waitTimes).length === 0) {
+            waitTimes = {
+                'rounds_1_to_5': { seconds: 60 },
+                'rounds_6_to_15': { seconds: 120 },
+                'rounds_16_plus': { seconds: 180 }
+            };
+        }
+
+        // Parse wait time configuration and create UI elements
+        Object.entries(waitTimes).forEach(([key, config]) => {
+            waitTimeCount++;
+
+            let from, to;
+            if (key.includes('_to_')) {
+                // rounds_1_to_5 format
+                const match = key.match(/rounds_(\d+)_to_(\d+)/);
+                if (match) {
+                    from = parseInt(match[1]);
+                    to = parseInt(match[2]);
+                }
+            } else if (key.includes('_plus')) {
+                // rounds_16_plus format
+                const match = key.match(/rounds_(\d+)_plus/);
+                if (match) {
+                    from = parseInt(match[1]);
+                    to = null; // Empty for infinity
+                }
+            }
+
+            if (from !== undefined) {
+                addWaitTimeRow(from, to, config.seconds);
+            }
+        });
+
+        // Ensure we have at least one wait time
+        if (waitTimeCount === 0) {
+            addWaitTimeRow(1, 5, 60);
+        }
+
+        updateRemoveButtons();
+    }
+
+    function addWaitTimeRow(from, to, seconds) {
+        waitTimeCount++;
+        const container = document.getElementById('wait-times-container');
+
+        const waitTimeDiv = document.createElement('div');
+        waitTimeDiv.className = 'row mb-3';
+        waitTimeDiv.id = `wait-time-${waitTimeCount}`;
+
+        const toValue = to !== null ? `value="${to}"` : '';
+        const toPlaceholder = to === null ? '<small class="text-muted">Leave empty for "to infinity"</small>' : '';
+
+        // Convert seconds to best unit
+        let value, unit, secondsSelect, minutesSelect, hoursSelect;
+        if (seconds % 3600 === 0) {
+            value = seconds / 3600;
+            unit = 'hours';
+            secondsSelect = '';
+            minutesSelect = '';
+            hoursSelect = 'selected';
+        } else if (seconds % 60 === 0) {
+            value = seconds / 60;
+            unit = 'minutes';
+            secondsSelect = '';
+            minutesSelect = 'selected';
+            hoursSelect = '';
+        } else {
+            value = seconds;
+            unit = 'seconds';
+            secondsSelect = 'selected';
+            minutesSelect = '';
+            hoursSelect = '';
+        }
+
+        waitTimeDiv.innerHTML = `
+            <div class="col-md-3">
+                <label class="form-label small">Rounds From</label>
+                <input type="number" class="form-control form-control-sm" id="wait-from-${waitTimeCount}" min="1" max="999" value="${from}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Rounds To</label>
+                <input type="number" class="form-control form-control-sm" id="wait-to-${waitTimeCount}" min="1" max="999" ${toValue}>
+                ${toPlaceholder}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Wait Time</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control" id="wait-value-${waitTimeCount}" min="1" max="999" value="${value}">
+                    <select class="form-select form-select-sm" id="wait-unit-${waitTimeCount}" style="max-width: 100px;">
+                        <option value="seconds" ${secondsSelect}>Seconds</option>
+                        <option value="minutes" ${minutesSelect}>Minutes</option>
+                        <option value="hours" ${hoursSelect}>Hours</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeWaitTime(${waitTimeCount})" id="remove-wait-${waitTimeCount}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+
+        container.appendChild(waitTimeDiv);
+    }
+
+    function collectWaitTimes() {
+        const waitTimes = {};
+        const waitTimeElements = document.querySelectorAll('[id^="wait-time-"]');
+
+        waitTimeElements.forEach(element => {
+            const id = element.id.replace('wait-time-', '');
+            const fromEl = document.getElementById(`wait-from-${id}`);
+            const toEl = document.getElementById(`wait-to-${id}`);
+            const valueEl = document.getElementById(`wait-value-${id}`);
+            const unitEl = document.getElementById(`wait-unit-${id}`);
+
+            if (fromEl && valueEl && unitEl && fromEl.value && valueEl.value) {
+                const from = parseInt(fromEl.value);
+                const to = toEl.value ? parseInt(toEl.value) : null;
+                const value = parseInt(valueEl.value);
+                const unit = unitEl.value;
+
+                // Convert to seconds
+                let seconds;
+                switch (unit) {
+                    case 'hours':
+                        seconds = value * 3600;
+                        break;
+                    case 'minutes':
+                        seconds = value * 60;
+                        break;
+                    case 'seconds':
+                    default:
+                        seconds = value;
+                        break;
+                }
+
+                if (from >= 1 && seconds >= 1) {
+                    const key = to ? `rounds_${from}_to_${to}` : `rounds_${from}_plus`;
+                    waitTimes[key] = { seconds: seconds };
+                }
+            }
+        });
+
+        return waitTimes;
+    }
+
+    // Parse ignore dates (supports ranges)
+    function parseIgnoreDates(ignoreList) {
+        const ignored = new Set();
+
+        ignoreList.forEach(entry => {
+            if (entry.includes(':')) {
+                // Range: "2025-12-24:2025-12-31"
+                const [startStr, endStr] = entry.split(':');
+                const start = new Date(startStr + 'T00:00:00');
+                const end = new Date(endStr + 'T00:00:00');
+
+                let current = new Date(start);
+                while (current <= end) {
+                    ignored.add(current.toISOString().split('T')[0]);
+                    current.setDate(current.getDate() + 1);
+                }
+            } else {
+                // Single date
+                ignored.add(entry);
+            }
+        });
+
+        return ignored;
+    }
+
+    // Blacklist dates management
+    function addBlacklistDate() {
+        const input = document.getElementById('new-blacklist');
+        const entry = input.value.trim();
+
+        if (!entry) {
+            showToast('Please enter a date or range', 'warning');
+            return;
+        }
+
+        // Validate format
+        const singleDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+        const rangePattern = /^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/;
+
+        if (!singleDatePattern.test(entry) && !rangePattern.test(entry)) {
+            showToast('Invalid format. Use YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD', 'error');
+            return;
+        }
+
+        const currentBlacklist = getCurrentBlacklist();
+        if (currentBlacklist.includes(entry)) {
+            showToast('Date/range already in blacklist', 'warning');
+            return;
+        }
+
+        currentBlacklist.push(entry);
+        updateBlacklistList(currentBlacklist);
+
+        input.value = '';
+        showToast('Blacklist entry added', 'success');
+    }
+
+    function removeBlacklistDate(entry) {
+        const currentBlacklist = getCurrentBlacklist();
+        const index = currentBlacklist.indexOf(entry);
+        if (index > -1) {
+            currentBlacklist.splice(index, 1);
+        }
+        updateBlacklistList(currentBlacklist);
+        showToast(`Removed ${entry} from ignore list. Regenerate dates to add it back.`, 'info');
+    }
+
+    function clearAllBlacklistDates() {
+        if (confirm('Are you sure you want to clear all ignore dates? This will remove all holidays and vacations from the list.')) {
+            updateBlacklistList([]);
+            showToast('All ignore dates cleared', 'success');
+        }
+    }
+
+    function getCurrentBlacklist() {
+        const container = document.getElementById('blacklist-list');
+        const entries = container.querySelectorAll('[data-blacklist]');
+        return Array.from(entries).map(el => el.getAttribute('data-blacklist'));
+    }
+
+    function updateBlacklistList(blacklist) {
+        const container = document.getElementById('blacklist-list');
+        const clearBtn = document.getElementById('clear-blacklist-btn');
+
+        if (blacklist.length === 0) {
+            container.innerHTML = '<p class="text-muted small mb-0">No dates in ignore list</p>';
+            clearBtn.style.display = 'none';
+        } else {
+            container.innerHTML = blacklist.map(entry => {
+                const isRange = entry.includes(':');
+                const icon = isRange ? 'calendar-range' : 'calendar-x';
+                return `
+                    <div class="d-flex justify-content-between align-items-center mb-1 p-1" data-blacklist="${entry}">
+                        <span><i class="bi bi-${icon}"></i> ${entry}</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeBlacklistDate('${entry}')"
+                                title="Remove from ignore list">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            clearBtn.style.display = 'inline-block';
+        }
+    }
+
+    // Save configuration
+    async function saveConfiguration() {
+        const spinner = document.getElementById('manual-save-spinner');
+        const submitBtn = document.querySelector('button[type="submit"]');
+
+        try {
+            // Show loading state
+            spinner.classList.remove('d-none');
+            submitBtn.disabled = true;
+
+            // Collect priority ranges
+            const priorityRanges = [];
+            for (let i = 1; i <= priorityRangeCount; i++) {
+                const rangeElement = document.getElementById(`range-${i}-value`);
+                const reasonElement = document.getElementById(`range-${i}-reason`);
+
+                if (rangeElement && rangeElement.value.trim()) {
+                    priorityRanges.push({
+                        range: rangeElement.value.trim(),
+                        priority: priorityRanges.length + 1,
+                        reason: reasonElement ? reasonElement.value.trim() : ''
+                    });
+                }
+            }
+
+            // Collect booking days
+            const bookingDays = [];
+            for (let i = 0; i < 7; i++) {
+                if (document.getElementById(`day-${i}`).checked) {
+                    bookingDays.push(i);
+                }
+            }
+
+            // Build configuration object
+            const config = {
+                building: document.getElementById('building').value.trim(),
+                floor: document.getElementById('floor').value.trim(),
+                desk_preferences: {
+                    prefix: document.getElementById('desk-prefix').value.trim(),
+                    priority_ranges: priorityRanges
+                },
+                dates_to_try: getCurrentDates(),
+                booking_days: {
+                    weekdays: bookingDays
+                },
+                blacklist_dates: getCurrentBlacklist(),
+                wait_times: collectWaitTimes(),
+                browser_restart: {
+                    restart_every_n_rounds: parseInt(document.getElementById('browser-restart').value)
+                }
+            };
+
+            // Validate configuration before saving
+            const validation = validateConfiguration(config);
+            if (!validation.isValid) {
+                console.error('Validation failed:', validation.errors);
+                showValidationErrors(validation.errors);
+
+                // Highlight invalid fields
+                if (validation.errors.some(e => e.includes('Building'))) {
+                    highlightInvalidField('building');
+                }
+                if (validation.errors.some(e => e.includes('Floor'))) {
+                    highlightInvalidField('floor');
+                }
+                if (validation.errors.some(e => e.includes('browser restart'))) {
+                    highlightInvalidField('browser-restart');
+                }
+
+                return;  // Stop saving if validation fails
+            }
+
+            // Save to server
+            const response = await apiCall('/api/config', {
+                method: 'POST',
+                body: JSON.stringify(config)
+            });
+
+            if (response.success) {
+                showToast(response.message || 'Configuration saved successfully!', 'success');
+                // Reload configuration to get updated dates if they were auto-calculated
+                if (response.dates_to_try) {
+                    updateDatesList(response.dates_to_try);
+                }
+            } else {
+                showToast(response.message || 'Failed to save configuration', 'error');
+            }
+        } catch (error) {
+            showToast('Error saving configuration: ' + error.message, 'error');
+        } finally {
+            // Hide loading state
+            spinner.classList.add('d-none');
+            submitBtn.disabled = false;
+        }
+    }
+</script>
+{% endblock %}

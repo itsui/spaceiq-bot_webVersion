@@ -10,17 +10,22 @@ from typing import Set
 import logging
 
 
-def cleanup_old_screenshots(screenshots_dir: Path = None, keep_sessions: int = 2, logger=None):
+def cleanup_old_screenshots(screenshots_dir: Path = None, keep_sessions: int = None, logger=None):
     """
     Clean up old screenshots, keeping only the most recent sessions.
 
     Args:
         screenshots_dir: Directory containing screenshots (default: ./screenshots)
-        keep_sessions: Number of recent sessions to keep (default: 2)
+        keep_sessions: Number of recent sessions to keep (default: from Config.SCREENSHOT_RETENTION)
         logger: Optional logger instance
     """
+    from config import Config
+
     if screenshots_dir is None:
         screenshots_dir = Path("screenshots")
+
+    if keep_sessions is None:
+        keep_sessions = Config.SCREENSHOT_RETENTION
 
     if not screenshots_dir.exists():
         return

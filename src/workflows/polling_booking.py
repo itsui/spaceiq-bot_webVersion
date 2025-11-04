@@ -105,7 +105,6 @@ class PollingBookingWorkflow:
                     print(f"Attempt: {attempt}/{self.max_attempts}")
                     print("=" * 70 + "\n")
 
-                    await booking_page.capture_screenshot("polling_booking_success")
                     return True
 
                 # No desk available
@@ -186,10 +185,6 @@ class PollingBookingWorkflow:
             svg_count = await svg_texts.count()
             self.logger.info(f"Found {svg_count} SVG text elements on floor map")
             print(f"      Found {svg_count} SVG text elements")
-
-            # Take screenshot of floor map for debugging
-            await booking_page.capture_screenshot("floor_map_loaded")
-            self.logger.info("Screenshot saved: floor_map_loaded")
 
             # Step 7: Get available desks from sidebar
             self.logger.info(f"Step 7: Finding available {self.desk_prefix}.* desks...")

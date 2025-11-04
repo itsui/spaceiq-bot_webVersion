@@ -25,8 +25,10 @@ class BasePage:
     - Handles screenshots and debugging
     """
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, screenshots_dir: Optional[Path] = None):
         self.page = page
+        # Allow per-user screenshot directories for multiuser isolation
+        self.screenshots_dir = Path(screenshots_dir) if screenshots_dir else Config.SCREENSHOTS_DIR
 
     async def navigate(self, url: str = None):
         """
@@ -158,7 +160,7 @@ class BasePage:
             await locator.click()
             # print(f"       Clicked {description}")
         except PlaywrightTimeoutError:
-            await self.capture_screenshot(f"click_failed_{description}")
+            await self.capture_screenshot(f"click_failed_{description}", force=True)
             raise Exception(f"Failed to click {description} - element not found or not clickable")
 
     async def fill_input(self, locator: Locator, value: str, description: str = "field"):
@@ -176,7 +178,7 @@ class BasePage:
             await locator.fill(value)
             # print(f"       Filled {description}")
         except PlaywrightTimeoutError:
-            await self.capture_screenshot(f"fill_failed_{description}")
+            await self.capture_screenshot(f"fill_failed_{description}", force=True)
             raise Exception(f"Failed to fill {description} - element not found or not editable")
 
     async def select_dropdown(self, locator: Locator, value: str, description: str = "dropdown"):
@@ -194,7 +196,7 @@ class BasePage:
             await locator.select_option(value)
             # print(f"       Selected option")
         except PlaywrightTimeoutError:
-            await self.capture_screenshot(f"select_failed_{description}")
+            await self.capture_screenshot(f"select_failed_{description}", force=True)
             raise Exception(f"Failed to select from {description} - element not found")
 
     async def wait_for_element(self, locator: Locator, state: str = "visible", description: str = "element"):
@@ -212,7 +214,7 @@ class BasePage:
             await locator.wait_for(state=state)
             # print(f"       {description} is {state}")
         except PlaywrightTimeoutError:
-            await self.capture_screenshot(f"wait_failed_{description}")
+            await self.capture_screenshot(f"wait_failed_{description}", force=True)
             raise Exception(f"Timeout waiting for {description} to be {state}")
 
     async def get_text(self, locator: Locator) -> str:
@@ -246,16 +248,24 @@ class BasePage:
     # Debugging and Error Handling
     # ============================================================================
 
-    async def capture_screenshot(self, name: str = "screenshot"):
+    async def capture_screenshot(self, name: str = "screenshot", force: bool = False):
         """
         Capture screenshot for debugging.
 
         Args:
             name: Base name for the screenshot file
+            force: Force screenshot even if DEBUG_MODE is False (use for critical errors only)
         """
+        # Only capture screenshots in DEBUG_MODE or if forced (critical errors)
+        if not Config.DEBUG_MODE and not force:
+            return
+
+        # Ensure screenshot directory exists (important for per-user directories)
+        self.screenshots_dir.mkdir(parents=True, exist_ok=True)
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{timestamp}.png"
-        filepath = Config.SCREENSHOTS_DIR / filename
+        filepath = self.screenshots_dir / filename
 
         await self.page.screenshot(path=str(filepath), full_page=True)
         # Verbose output suppressed - screenshot saved silently for debugging

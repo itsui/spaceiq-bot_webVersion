@@ -1,44 +1,58 @@
 {
-  "description": "SpaceIQ Booking Configuration - Set your preferences here",
   "building": "LC",
   "floor": "2",
-  "dates_to_try": [],
-  "booked_dates": [],
-  "booking_days": {
-    "description": "Which weekdays to book (0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday)",
-    "weekdays": [2, 3],
-    "note": "Default is [2, 3] for Wednesday and Thursday. Change to [0, 1, 2, 3, 4] to book all weekdays."
-  },
-  "wait_times": {
-    "description": "How long to wait between booking rounds (in seconds)",
-    "rounds_1_to_5": {
-      "seconds": 60,
-      "note": "1 minute - aggressive checking for early rounds"
-    },
-    "rounds_6_to_15": {
-      "seconds": 300,
-      "note": "5 minutes - moderate checking for middle rounds"
-    },
-    "rounds_16_plus": {
-      "seconds": 900,
-      "note": "15 minutes - conservative checking for later rounds"
-    },
-    "explanation": "The bot progressively waits longer between rounds. Early rounds check every minute, then slows to 5 min, then 15 min."
-  },
   "desk_preferences": {
     "prefix": "2.24",
-    "description": "Only book desks starting with 2.24 (e.g., 2.24.30, 2.24.17)",
     "priority_ranges": [
       {
-        "range": "2.24.01-2.24.99",
+        "range": "2.24.01-2.24.21",
         "priority": 1,
-        "reason": "All desks in 2.24 area - customize your priorities here"
+        "reason": "Best area - most preferred"
+      },
+      {
+        "range": "2.24.34-2.24.42",
+        "priority": 2,
+        "reason": "Second choice"
+      },
+      {
+        "range": "2.24.52-2.24.68",
+        "priority": 3,
+        "reason": "Third choice"
+      },
+      {
+        "range": "2.24.22-2.24.33",
+        "priority": 4,
+        "reason": "Fourth choice"
+      },
+      {
+        "range": "2.24.44-2.24.46",
+        "priority": 5,
+        "reason": "Worst seats - last resort only"
       }
     ]
   },
-  "notes": {
-    "dates_to_try": "List of dates to book. Bot tries each once. If no seats, skips to next.",
-    "booked_dates": "Successfully booked dates are automatically moved here.",
-    "desk_prefix": "Only click desks whose ID starts with this prefix"
+  "dates_to_try": [
+    "2025-11-13",
+    "2025-11-06"
+  ],
+  "booking_days": {
+    "weekdays": [
+      2,
+      3
+    ]
+  },
+  "wait_times": {
+    "rounds_1_to_5": {
+      "seconds": 60
+    },
+    "rounds_6_to_15": {
+      "seconds": 120
+    },
+    "rounds_16_plus": {
+      "seconds": 180
+    }
+  },
+  "browser_restart": {
+    "restart_every_n_rounds": 50
   }
 }

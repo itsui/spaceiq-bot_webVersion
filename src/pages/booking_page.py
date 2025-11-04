@@ -149,7 +149,7 @@ class BookingPage(BasePage):
             await self.wait_for_element(success_message, 'visible', 'Success message')
             return True
         except:
-            await self.capture_screenshot('booking_verification_failed')
+            await self.capture_screenshot('booking_verification_failed', force=True)
             return False
 
     # ============================================================================

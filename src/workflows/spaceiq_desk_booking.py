@@ -125,7 +125,7 @@ class SpaceIQDeskBookingWorkflow:
             popup_appeared = await booking_page.verify_desk_popup_appeared()
             if not popup_appeared:
                 print("\n❌ Desk information popup did not appear")
-                await booking_page.capture_screenshot("no_popup")
+                await booking_page.capture_screenshot("no_popup", force=True)
                 return False
 
             # Get desk info
@@ -154,7 +154,6 @@ class SpaceIQDeskBookingWorkflow:
                 if desk_info.get('desk_name'):
                     print(f"Desk: {desk_info['desk_name']}")
                 print("=" * 70 + "\n")
-                await booking_page.capture_screenshot("booking_success")
             else:
                 print("\n" + "=" * 70)
                 print("⚠️  BOOKING STATUS UNCLEAR")
@@ -168,7 +167,7 @@ class SpaceIQDeskBookingWorkflow:
         except Exception as e:
             print(f"\n❌ Error during booking workflow: {e}")
             if 'booking_page' in locals():
-                await booking_page.capture_screenshot("workflow_error")
+                await booking_page.capture_screenshot("workflow_error", force=True)
             import traceback
             traceback.print_exc()
             return False

@@ -11,6 +11,7 @@ Usage:
     python multi_date_book.py --auto --unattended          # Auto mode: no prompts (for scheduled runs)
     python multi_date_book.py --loop                       # Continuous loop mode (non-headless)
     python multi_date_book.py --poll                       # Polling mode (try until one succeeds)
+    python multi_date_book.py --skip-validation            # Skip Supabase validation (requires DEV_MODE=true in .env)
 
 Note: Headless mode automatically enables continuous loop and checks existing bookings.
 """
@@ -93,6 +94,7 @@ async def main():
     polling_mode = "--poll" in sys.argv or "-poll" in sys.argv
     continuous_loop = "--loop" in sys.argv or "-loop" in sys.argv
     headless = "--headless" in sys.argv or "-headless" in sys.argv
+    skip_validation = "--skip-validation" in sys.argv
 
     if auto_mode:
         # Verbose startup output suppressed - using clean pretty output
@@ -113,7 +115,8 @@ async def main():
         max_attempts_per_date=10,  # Try each date up to 10 times
         polling_mode=polling_mode,  # Keep trying until seats found
         headless=headless,  # Run without browser window
-        continuous_loop=continuous_loop  # Keep trying forever
+        continuous_loop=continuous_loop,  # Keep trying forever
+        skip_validation=skip_validation  # Skip Supabase validation (for testing)
     )
 
     # Exit with appropriate code (summary already shown by pretty output)

@@ -1,0 +1,35 @@
+# Production dependencies for SpaceIQ Multi-User Bot Platform
+
+# Core web framework
+Flask>=3.0.0
+Flask-Login>=0.6.3
+Flask-SQLAlchemy>=3.1.1
+Flask-Limiter>=3.5.0
+
+# Database
+SQLAlchemy>=2.0.25
+greenlet>=3.1.0
+
+# Authentication & Security
+Werkzeug>=3.0.1
+cryptography>=41.0.7
+bcrypt>=4.1.1
+python-dotenv>=1.0.0
+
+# Production WSGI servers (choose one)
+gunicorn==21.2.0          # Linux/Unix production server
+waitress==2.1.2           # Windows-friendly production server
+
+# Bot dependencies (from existing requirements)
+playwright>=1.40.0
+supabase>=2.1.0
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+lxml>=4.9.3
+
+# Utilities
+pathlib2==2.3.7; python_version < '3.4'
+
+# Optional: Production monitoring
+# sentry-sdk[flask]==1.32.0  # Error tracking
+# prometheus-flask-exporter==0.22.1  # Metrics

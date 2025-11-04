@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Status Card -->
+    <div class="col-lg-8">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-activity"></i> Bot Status & Control
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <div id="status-light" class="status-light me-3"></div>
+                            <div>
+                                <h6 class="mb-1">Current Status</h6>
+                                <p id="status-display" class="mb-0 fw-bold">Checking...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button id="start-btn" class="btn btn-success" onclick="startBot()">
+                                <i class="bi bi-play-fill"></i> Start Bot
+                            </button>
+                            <button id="stop-btn" class="btn btn-danger" onclick="stopBot()" disabled>
+                                <i class="bi bi-stop-fill"></i> Stop Bot
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="row text-center">
+                    <div class="col">
+                        <div class="stat-item">
+                            <div class="stat-value" id="current-round">0</div>
+                            <div class="stat-label">Current Round</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="stat-item">
+                            <div class="stat-value" id="successful-bookings">0</div>
+                            <div class="stat-label">Successful Bookings</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="stat-item">
+                            <div class="stat-value" id="failed-attempts">0</div>
+                            <div class="stat-label">Failed Attempts</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="stat-item">
+                            <div class="stat-value" id="uptime">00:00</div>
+                            <div class="stat-label">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Preview -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-card-list"></i> Current Configuration
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <small class="text-muted">Building/Floor</small>
+                        <p class="mb-2" id="config-building">Loading...</p>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Desk Prefix</small>
+                        <p class="mb-2" id="config-desk-prefix">Loading...</p>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Dates to Book</small>
+                        <p class="mb-2" id="config-dates">Loading...</p>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Booking Days</small>
+                        <p class="mb-2" id="config-days">Loading...</p>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <a href="{{ url_for('config_page') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-pencil"></i> Edit Configuration
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-terminal"></i> Recent Logs
+                </h6>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" onclick="viewFullLogs()" title="View Full Logs">
+                        <i class="bi bi-file-text"></i> Full Logs
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="downloadSessionLog()" title="Download Session Log" id="download-log-btn" style="display: none;">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearLogs()">
+                        <i class="bi bi-trash"></i> Clear
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="toggleAutoScroll()">
+                        <i class="bi bi-arrow-down-up"></i> Auto-scroll
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="logs-container" class="logs-container">
+                    <div id="logs-content" class="logs-content">
+                        <div class="text-muted text-center p-3">
+                            <i class="bi bi-hourglass-split"></i> Waiting for logs...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-lightning"></i> Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="refreshStatus()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Status
+                    </button>
+                    <a href="{{ url_for('config_page') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-gear"></i> Edit Settings
+                    </a>
+                    <a href="{{ url_for('history_page') }}" class="btn btn-outline-info">
+                        <i class="bi bi-clock-history"></i> View History
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Bookings -->
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-calendar-check"></i> Recent Bookings
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="recent-bookings">
+                    <div class="text-muted text-center">
+                        <i class="bi bi-hourglass-split"></i> Loading...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let autoScroll = true;
+let statusCheckInterval;
+
+// Auto-refresh status every 2 seconds
+statusCheckInterval = setInterval(checkStatus, 2000);
+checkStatus(); // Initial check
+loadRecentBookings(); // Load recent bookings
+loadConfigurationPreview(); // Load configuration preview
+
+// Function to load configuration preview
+async function loadConfigurationPreview() {
+    try {
+        const config = await apiCall('/config');
+        updateConfigPreview(config);
+    } catch (error) {
+        console.error('Failed to load configuration preview:', error);
+    }
+}
+
+// Clear interval when page is hidden
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        clearInterval(statusCheckInterval);
+    } else {
+        statusCheckInterval = setInterval(checkStatus, 2000);
+        checkStatus();
+    }
+});
+</script>
+{% endblock %}

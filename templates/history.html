@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}Booking History - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-clock-history"></i> Booking History
+                </h5>
+                <div>
+                    <button class="btn btn-outline-light btn-sm" onclick="refreshHistory()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" onclick="exportHistory()">
+                        <i class="bi bi-download"></i> Export
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <label for="filter-status" class="form-label">Status</label>
+                        <select class="form-select" id="filter-status" onchange="filterHistory()">
+                            <option value="">All Status</option>
+                            <option value="success">Success</option>
+                            <option value="failed">Failed</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filter-date-from" class="form-label">From Date</label>
+                        <input type="date" class="form-control" id="filter-date-from" onchange="filterHistory()">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filter-date-to" class="form-label">To Date</label>
+                        <input type="date" class="form-control" id="filter-date-to" onchange="filterHistory()">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                            <i class="bi bi-x-circle"></i> Clear Filters
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Statistics Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-success">0</h4>
+                                <small>Successful</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-failed">0</h4>
+                                <small>Failed</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-pending">0</h4>
+                                <small>Pending</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h4 class="mb-1" id="stat-total">0</h4>
+                                <small>Total</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- History Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th onclick="sortHistory('date')" style="cursor: pointer;">
+                                    Date <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th onclick="sortHistory('desk')" style="cursor: pointer;">
+                                    Desk <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th onclick="sortHistory('time')" style="cursor: pointer;">
+                                    Time <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th onclick="sortHistory('status')" style="cursor: pointer;">
+                                    Status <i class="bi bi-arrow-down-up"></i>
+                                </th>
+                                <th>Details</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <div class="mt-2">Loading booking history...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <nav aria-label="History pagination">
+                    <ul class="pagination justify-content-center" id="pagination">
+                        <!-- Pagination will be added here dynamically -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Detail Modal -->
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Booking Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="booking-details">
+                <!-- Booking details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let bookingHistory = [];
+let filteredHistory = [];
+let currentPage = 1;
+let itemsPerPage = 20;
+let sortField = 'date';
+let sortDirection = 'desc';
+
+// Load history when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadBookingHistory();
+});
+
+// Set default filter dates (last 30 days)
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+
+    document.getElementById('filter-date-to').value = today.toISOString().split('T')[0];
+    document.getElementById('filter-date-from').value = thirtyDaysAgo.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

@@ -108,7 +108,7 @@ class DeskBookingWorkflow:
 
             if available_count == 0:
                 print("\n❌ No available spaces found for this date/location")
-                await booking_page.capture_screenshot("no_spaces_available")
+                await booking_page.capture_screenshot("no_spaces_available", force=True)
                 return False
 
             # Step 9: Select first available space (or apply preferences)
@@ -133,7 +133,6 @@ class DeskBookingWorkflow:
                 print(f"Location: {location}")
                 print(f"Date: {date}")
                 print("=" * 70 + "\n")
-                await booking_page.capture_screenshot("booking_success")
             else:
                 print("\n" + "=" * 70)
                 print("❌ BOOKING FAILED")
@@ -146,7 +145,7 @@ class DeskBookingWorkflow:
         except Exception as e:
             print(f"\n❌ Error during booking workflow: {e}")
             if 'booking_page' in locals():
-                await booking_page.capture_screenshot("workflow_error")
+                await booking_page.capture_screenshot("workflow_error", force=True)
             return False
 
         finally:

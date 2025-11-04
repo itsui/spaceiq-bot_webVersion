@@ -133,9 +133,25 @@ async def capture_session():
 
             # Save the storage state
             print(f"\n⏳ Capturing session state...")
-            await context.storage_state(path=str(Config.AUTH_STATE_FILE))
 
-            print(f"✅ Session saved successfully to: {Config.AUTH_STATE_FILE}")
+            # Save to temporary file first
+            temp_file = Config.AUTH_STATE_FILE.parent / "temp_auth.json"
+            await context.storage_state(path=str(temp_file))
+
+            # Read and encrypt the session
+            import json
+            from src.utils.auth_encryption import save_encrypted_session
+
+            with open(temp_file, 'r', encoding='utf-8') as f:
+                session_data = json.load(f)
+
+            # Save with encryption
+            if save_encrypted_session(Config.AUTH_STATE_FILE, session_data):
+                temp_file.unlink()
+                print(f"✅ Session saved and encrypted to: {Config.AUTH_STATE_FILE}")
+            else:
+                temp_file.rename(Config.AUTH_STATE_FILE)
+                print(f"✅ Session saved to: {Config.AUTH_STATE_FILE} (encryption failed)")
             print("\n" + "=" * 70)
             print("SUCCESS! Authentication capture complete.")
             print("=" * 70)

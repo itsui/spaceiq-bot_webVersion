@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-gear"></i> Booking Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="config-form">
+                    <!-- Basic Settings -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="building" class="form-label">Building</label>
+                            <input type="text" class="form-control" id="building" name="building" maxlength="10" required>
+                            <div class="form-text">Building code (e.g., LC)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="floor" class="form-label">Floor</label>
+                            <input type="text" class="form-control" id="floor" name="floor" maxlength="10" required>
+                            <div class="form-text">Floor number (e.g., 2)</div>
+                        </div>
+                    </div>
+
+                    <!-- Dates to Book -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Dates to Book</h6>
+                        <div id="dates-container">
+                            <div class="row mb-2" id="dates-rows">
+                                <!-- Date rows will be added here dynamically -->
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDateRow()">
+                            <i class="bi bi-plus-circle"></i> Add Date
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="generateAutoDates()">
+                            <i class="bi bi-magic"></i> Generate Auto Dates
+                        </button>
+                    </div>
+
+                    <!-- Booking Days -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Regular Booking Days</h6>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-0" name="weekdays" value="0">
+                                    <label class="form-check-label" for="day-0">Monday</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-1" name="weekdays" value="1">
+                                    <label class="form-check-label" for="day-1">Tuesday</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-2" name="weekdays" value="2">
+                                    <label class="form-check-label" for="day-2">Wednesday</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-3" name="weekdays" value="3">
+                                    <label class="form-check-label" for="day-3">Thursday</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-4" name="weekdays" value="4">
+                                    <label class="form-check-label" for="day-4">Friday</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-5" name="weekdays" value="5">
+                                    <label class="form-check-label" for="day-5">Saturday</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="day-6" name="weekdays" value="6">
+                                    <label class="form-check-label" for="day-6">Sunday</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">Select which weekdays to book automatically</div>
+                    </div>
+
+                    <!-- Desk Preferences -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Desk Preferences</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="desk-prefix" class="form-label">Desk Prefix</label>
+                                <input type="text" class="form-control" id="desk-prefix" name="desk_prefix" placeholder="e.g., 2.24">
+                                <div class="form-text">Only book desks starting with this prefix</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Priority Ranges</label>
+                            <div id="priority-ranges">
+                                <!-- Priority ranges will be added here dynamically -->
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="addPriorityRange()">
+                                <i class="bi bi-plus-circle"></i> Add Priority Range
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Wait Times -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Wait Times Between Rounds</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="wait-early" class="form-label">Early Rounds (1-5)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="wait-early" name="wait_early" min="30" max="300" value="60">
+                                    <span class="input-group-text">seconds</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="wait-mid" class="form-label">Mid Rounds (6-15)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="wait-mid" name="wait_mid" min="60" max="600" value="120">
+                                    <span class="input-group-text">seconds</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="wait-late" class="form-label">Late Rounds (16+)</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="wait-late" name="wait_late" min="120" max="1800" value="180">
+                                    <span class="input-group-text">seconds</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Browser Settings -->
+                    <div class="mb-4">
+                        <h6 class="text-muted mb-3">Browser Settings</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="browser-restart" class="form-label">Restart Browser Every</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="browser-restart" name="browser_restart" min="10" max="200" value="50">
+                                    <span class="input-group-text">rounds</span>
+                                </div>
+                                <div class="form-text">Prevents browser timeout during long runs</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaults()">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset to Defaults
+                            </button>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-outline-danger me-2" onclick="cancelEdit()">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Save Configuration
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Info -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-info-circle"></i> Quick Help
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="helpAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#help-dates">
+                                <i class="bi bi-calendar3 me-2"></i> Understanding Dates
+                            </button>
+                        </h2>
+                        <div id="help-dates" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <small>
+                                    <strong>Dates to Book:</strong> Specific dates the bot will try to book once.<br>
+                                    <strong>Booking Days:</strong> Regular weekdays for auto-mode booking.<br>
+                                    <strong>Auto Generate:</strong> Creates dates for the next few weeks based on your selected days.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#help-desks">
+                                <i class="bi bi-building me-2"></i> Desk Priorities
+                            </button>
+                        </h2>
+                        <div id="help-desks" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <small>
+                                    Priority 1 desks are tried first, then Priority 2, and so on.<br>
+                                    Use ranges like "2.24.01-2.24.20" to specify groups of desks.<br>
+                                    The bot will try all desks in Priority 1 before moving to Priority 2.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#help-wait">
+                                <i class="bi bi-clock me-2"></i> Wait Times
+                            </button>
+                        </h2>
+                        <div id="help-wait" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <small>
+                                    The bot waits longer between rounds as time progresses:<br>
+                                    • Early rounds: Check frequently for best desks<br>
+                                    • Mid rounds: Moderate checking pace<br>
+                                    • Late rounds: Conservative checking to avoid server load
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Status -->
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="bi bi-activity"></i> Bot Status
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="config-status" class="text-center">
+                    <i class="bi bi-hourglass-split"></i>
+                    <p class="mb-0 mt-2">Checking bot status...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentConfig = {};
+
+// Load configuration when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadConfiguration();
+    checkBotStatus();
+});
+
+// Form submission
+document.getElementById('config-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveConfiguration();
+});
+</script>
+{% endblock %}

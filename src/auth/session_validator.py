@@ -3,12 +3,14 @@ Session Validator
 
 Checks if session is still valid before running headless mode.
 If session expired, automatically opens visible browser for re-login.
+Supports encrypted auth files transparently.
 """
 
 import asyncio
 from playwright.async_api import async_playwright, Browser, BrowserContext
 from pathlib import Path
 from config import Config
+from src.utils.auth_encryption import load_encrypted_session
 
 
 async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bool, bool]:
@@ -40,11 +42,18 @@ async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bo
     # print("[INFO] Validating session...")
 
     try:
+        # Load and decrypt session first
+        session_data = load_encrypted_session(Config.AUTH_STATE_FILE)
+
+        if not session_data:
+            print("[WARNING] Could not load/decrypt session file")
+            return await _run_session_warmer(headless=False, force_headless=force_headless)
+
         async with async_playwright() as p:
             # Quick test with existing session (headless for speed)
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context(
-                storage_state=str(Config.AUTH_STATE_FILE),
+                storage_state=session_data,  # Use decrypted dict, not file path
                 viewport={'width': 1920, 'height': 1080}
             )
             page = await context.new_page()
@@ -170,8 +179,25 @@ async def _run_session_warmer(headless: bool, force_headless: bool) -> tuple[boo
             # Save the session
             print("[INFO] Saving session...")
             Config.AUTH_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            await context.storage_state(path=str(Config.AUTH_STATE_FILE))
-            print(f"[SUCCESS] Session saved to: {Config.AUTH_STATE_FILE}")
+
+            # Save to temporary file first
+            temp_file = Config.AUTH_STATE_FILE.parent / "temp_auth.json"
+            await context.storage_state(path=str(temp_file))
+
+            # Read and encrypt the session
+            import json
+            from src.utils.auth_encryption import save_encrypted_session
+
+            with open(temp_file, 'r', encoding='utf-8') as f:
+                session_data = json.load(f)
+
+            # Save with encryption
+            if save_encrypted_session(Config.AUTH_STATE_FILE, session_data):
+                temp_file.unlink()
+                print(f"[SUCCESS] Session saved and encrypted: {Config.AUTH_STATE_FILE}")
+            else:
+                temp_file.rename(Config.AUTH_STATE_FILE)
+                print(f"[WARNING] Session saved without encryption: {Config.AUTH_STATE_FILE}")
 
             # Close browser
             await browser.close()

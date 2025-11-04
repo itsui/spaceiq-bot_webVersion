@@ -1,0 +1,96 @@
+{% extends "base_multi.html" %}
+
+{% block title %}Register - SpaceIQ Bot{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-person-plus" style="font-size: 4rem; color: #667eea;"></i>
+                    <h2 class="mt-3">Create Account</h2>
+                    <p class="text-muted">Join the SpaceIQ Bot Platform</p>
+                </div>
+
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <strong>Important:</strong> Use your ILM/corporate username. The password is only for bot access (not your ILM password).
+                </div>
+
+                <form method="POST" action="{{ url_for('register') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            ILM Username
+                            <small class="text-muted">(Your corporate username)</small>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-person"></i>
+                            </span>
+                            <input type="text" class="form-control" id="username" name="username"
+                                   placeholder="e.g., john.doe" required autofocus>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle"></i> Must match your ILM/corporate username exactly
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            Corporate Email
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-envelope"></i>
+                            </span>
+                            <input type="email" class="form-control" id="email" name="email"
+                                   placeholder="john.doe@company.com" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">
+                            Bot Password
+                            <small class="text-muted">(Create a new password for bot access)</small>
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock"></i>
+                            </span>
+                            <input type="password" class="form-control" id="password" name="password"
+                                   placeholder="At least 6 characters" required minlength="6">
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-shield-check"></i> This is NOT your ILM password - create a unique password for the bot
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Bot Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock-fill"></i>
+                            </span>
+                            <input type="password" class="form-control" id="confirm_password"
+                                   name="confirm_password" placeholder="Re-enter password" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100 mb-3">
+                        <i class="bi bi-check-circle"></i> Create Account
+                    </button>
+                </form>
+
+                <hr>
+
+                <div class="text-center">
+                    <p class="mb-0">Already have an account?
+                        <a href="{{ url_for('login') }}">Login here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

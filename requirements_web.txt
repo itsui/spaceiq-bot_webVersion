@@ -1,0 +1,13 @@
+# Web Interface Requirements for SpaceIQ Bot
+# Install with: pip install -r requirements_web.txt
+
+# Flask web framework
+Flask==2.3.3
+
+# Additional dependencies (likely already installed for the bot)
+# Playwright (for bot functionality)
+# python-dotenv (for environment variables)
+# asyncio (for async operations)
+
+# Note: The web interface uses Bootstrap and other frontend libraries via CDN,
+# so no additional frontend dependencies need to be installed via pip.

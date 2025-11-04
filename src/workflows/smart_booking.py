@@ -156,7 +156,6 @@ class SmartBookingWorkflow:
                         print(f"Attempts: {results['attempts']}")
                         print("=" * 70 + "\n")
 
-                        await booking_page.capture_screenshot("smart_booking_success")
                         break  # Stop on first success
                 else:
                     results['failed_dates'].append({
@@ -228,7 +227,7 @@ class SmartBookingWorkflow:
             # Verify popup appeared
             if not await booking_page.verify_desk_popup_appeared():
                 print("❌ Desk popup did not appear")
-                await booking_page.capture_screenshot(f"no_popup_{date_str}")
+                await booking_page.capture_screenshot(f"no_popup_{date_str}", force=True)
                 return False
 
             # Step 8: Click Book Now
@@ -243,7 +242,7 @@ class SmartBookingWorkflow:
 
         except Exception as e:
             print(f"❌ Error booking for {date_str}: {e}")
-            await booking_page.capture_screenshot(f"error_{date_str}")
+            await booking_page.capture_screenshot(f"error_{date_str}", force=True)
             return False
 
     def _print_summary(self, results: Dict):
