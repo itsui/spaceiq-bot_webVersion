@@ -148,6 +148,24 @@ class AutoSSOMFAHandler:
                         await asyncio.sleep(2)
                         continue  # Check URL again after form submit
 
+                # Check if hit PIV card error page (certificate authentication)
+                if 'cert/error' in current_url and 'piv.card' in current_url:
+                    logger.info("PIV card error detected - looking for skip/continue button")
+                    # Try to find and click "Continue" or skip button
+                    skip_button = await self.page.query_selector('a[href*="skip"], button:has-text("Continue"), a:has-text("Continue"), button:has-text("Skip")')
+                    if skip_button:
+                        logger.info("Found skip button - clicking to continue")
+                        await skip_button.click()
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        # No skip button - try going directly to the app
+                        logger.info("No skip button found - navigating directly to SpaceIQ")
+                        await self.page.goto('https://main.spaceiq.com/finder/building/LC/floor/2',
+                                           wait_until='domcontentloaded', timeout=15000)
+                        await asyncio.sleep(2)
+                        continue
+
                 # Check for stable URL (no more redirects)
                 if current_url == last_url:
                     stable_url_count += 1
