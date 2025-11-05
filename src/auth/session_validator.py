@@ -13,7 +13,7 @@ from config import Config
 from src.utils.auth_encryption import load_encrypted_session
 
 
-async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bool, bool]:
+async def validate_and_refresh_session(force_headless: bool = False, auth_file: str = None) -> tuple[bool, bool]:
     """
     Validate session and refresh if needed.
 
@@ -22,6 +22,7 @@ async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bo
 
     Args:
         force_headless: True if user requested headless mode
+        auth_file: Path to auth file (if None, uses Config.AUTH_STATE_FILE)
 
     Returns:
         Tuple of (session_valid, should_use_headless)
@@ -30,8 +31,11 @@ async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bo
         - If session expired and user cancelled: (False, False)
     """
 
+    # Use provided auth file or fall back to default
+    auth_file_path = Path(auth_file) if auth_file else Config.AUTH_STATE_FILE
+
     # Check if auth file exists
-    if not Config.AUTH_STATE_FILE.exists():
+    if not auth_file_path.exists():
         print("\n[WARNING] No session file found. Need to login first.")
         print("Running session warmer...")
 
@@ -43,7 +47,7 @@ async def validate_and_refresh_session(force_headless: bool = False) -> tuple[bo
 
     try:
         # Load and decrypt session first
-        session_data = load_encrypted_session(Config.AUTH_STATE_FILE)
+        session_data = load_encrypted_session(auth_file_path)
 
         if not session_data:
             print("[WARNING] Could not load/decrypt session file")

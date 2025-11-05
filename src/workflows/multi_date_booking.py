@@ -222,7 +222,10 @@ class MultiDateBookingWorkflow:
                 # print("[INFO] Headless mode requested - validating session first...")
                 from src.auth.session_validator import validate_and_refresh_session
 
-                session_valid, use_headless = await validate_and_refresh_session(force_headless=True)
+                session_valid, use_headless = await validate_and_refresh_session(
+                    force_headless=True,
+                    auth_file=self.session_manager.auth_file
+                )
 
                 if not session_valid:
                     print("\n[ERROR] Session validation failed. Cannot continue.")
@@ -849,7 +852,10 @@ async def run_multi_date_booking_web_mode(
             web_logger.info("Validating session for headless mode...")
             from src.auth.session_validator import validate_and_refresh_session
 
-            session_valid, use_headless = await validate_and_refresh_session(force_headless=True)
+            session_valid, use_headless = await validate_and_refresh_session(
+                force_headless=True,
+                auth_file=session_manager.auth_file
+            )
             if not session_valid:
                 web_logger.error("Session validation failed")
                 return {"error": "Session validation failed", "success": False}
