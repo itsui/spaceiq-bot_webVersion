@@ -1094,6 +1094,64 @@ def api_save_stream_session():
         with open(temp_path, 'r') as f:
             session_data = f.read()
 
+        # DEBUG: Log session structure
+        logger.info("=" * 80)
+        logger.info("SESSION SAVE DEBUG")
+        logger.info(f"Session file exists: {temp_path.exists()}")
+        logger.info(f"Session file size: {len(session_data)} bytes")
+
+        try:
+            session_json = json.loads(session_data)
+            logger.info(f"Session structure:")
+            logger.info(f"  - Cookies: {len(session_json.get('cookies', []))} cookies")
+            logger.info(f"  - Origins: {len(session_json.get('origins', []))} origins")
+
+            # Log important cookies
+            important_cookies = []
+            for cookie in session_json.get('cookies', []):
+                cookie_name = cookie.get('name', '')
+                cookie_domain = cookie.get('domain', '')
+                cookie_value = cookie.get('value', '')
+
+                # Log any cookie related to spaceiq, okta, or authentication
+                if any(keyword in cookie_name.lower() or keyword in cookie_domain.lower()
+                       for keyword in ['spaceiq', 'okta', 'auth', 'session', 'token', 'sid', 'jwt']):
+                    important_cookies.append({
+                        'name': cookie_name,
+                        'domain': cookie_domain,
+                        'value': cookie_value[:20] + '...' if len(cookie_value) > 20 else cookie_value,
+                        'httpOnly': cookie.get('httpOnly', False),
+                        'secure': cookie.get('secure', False)
+                    })
+
+            logger.info(f"Important cookies found: {len(important_cookies)}")
+            for cookie in important_cookies:
+                logger.info(f"    {cookie['name']} @ {cookie['domain']}: {cookie['value']} (httpOnly={cookie['httpOnly']}, secure={cookie['secure']})")
+
+            # Log localStorage/sessionStorage data
+            for origin in session_json.get('origins', []):
+                origin_url = origin.get('origin', '')
+                local_storage = origin.get('localStorage', [])
+                session_storage = origin.get('sessionStorage', [])
+
+                if 'spaceiq' in origin_url or 'okta' in origin_url:
+                    logger.info(f"  Origin: {origin_url}")
+                    logger.info(f"    localStorage items: {len(local_storage)}")
+                    logger.info(f"    sessionStorage items: {len(session_storage)}")
+
+                    for item in local_storage + session_storage:
+                        item_name = item.get('name', '')
+                        if any(keyword in item_name.lower() for keyword in ['auth', 'token', 'user', 'session']):
+                            item_value = item.get('value', '')
+                            logger.info(f"      {item_name}: {item_value[:50]}..." if len(item_value) > 50 else f"      {item_name}: {item_value}")
+
+            logger.info(f"Current URL at time of save: {session.current_url}")
+
+        except Exception as e:
+            logger.error(f"Failed to parse session JSON: {e}")
+
+        logger.info("=" * 80)
+
         encrypted_data = encrypt_data(session_data)
 
         # Save to database
@@ -1107,10 +1165,68 @@ def api_save_stream_session():
         spaceiq_session.is_valid = True
         db.session.commit()
 
+        logger.info(f"✓✓✓ Session saved to database for user {current_user.id}")
+
+        # TEST: Immediately validate the session by trying to use it
+        logger.info("Testing saved session validity...")
+        try:
+            # Create a test browser context with the saved session
+            from playwright.async_api import async_playwright
+            import asyncio
+
+            async def test_session_validity():
+                playwright = await async_playwright().start()
+                browser = await playwright.chromium.launch(headless=True)
+
+                # Load the session we just saved
+                test_context = await browser.new_context(storage_state=session_json)
+
+                test_page = await test_context.new_page()
+
+                # Navigate to SpaceIQ finder page
+                logger.info("  Navigating to SpaceIQ finder page...")
+                await test_page.goto("https://main.spaceiq.com/finder", wait_until='networkidle', timeout=15000)
+
+                # Check final URL
+                final_url = test_page.url
+                logger.info(f"  Final URL: {final_url}")
+
+                if '/login' in final_url:
+                    logger.error("  ❌ SESSION INVALID - Redirected to login page!")
+                    logger.error("  The saved session does NOT work for SpaceIQ authentication")
+                    is_valid = False
+                elif '/finder' in final_url:
+                    logger.info("  ✅ SESSION VALID - Stayed on finder page")
+                    logger.info("  The saved session WORKS for SpaceIQ authentication")
+                    is_valid = True
+                else:
+                    logger.warning(f"  ⚠️ UNEXPECTED URL: {final_url}")
+                    is_valid = False
+
+                await test_context.close()
+                await browser.close()
+                await playwright.stop()
+
+                return is_valid
+
+            # Run the test
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            session_valid = loop.run_until_complete(test_session_validity())
+            loop.close()
+
+            if not session_valid:
+                logger.error("Session validation FAILED - session will not work for bot!")
+                # Still return success but log the issue
+                # In the future, we could return an error here
+
+        except Exception as test_error:
+            logger.error(f"Failed to test session validity: {test_error}", exc_info=True)
+
         # Cleanup
         temp_path.unlink()
 
-        logger.info(f"✓✓✓ Session successfully saved to database for user {current_user.id}")
+        logger.info(f"✓✓✓ Session save process completed for user {current_user.id}")
 
         return jsonify({
             'success': True,

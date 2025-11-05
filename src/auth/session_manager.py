@@ -50,6 +50,7 @@ class SessionManager:
         # print(f"[INFO] Initializing authenticated browser session...")
 
         # Load and decrypt session (transparent - works with encrypted or plain JSON)
+        print(f"[DEBUG] Loading session from: {auth_path}")
         session_data = load_encrypted_session(auth_path)
 
         if not session_data:
@@ -60,6 +61,22 @@ class SessionManager:
                 f"    rm {Config.AUTH_STATE_FILE}\n"
                 f"    python auto_warm_session.py\n"
             )
+
+        # Debug: Log session structure
+        print(f"[DEBUG] Session loaded successfully")
+        print(f"[DEBUG]   - Cookies: {len(session_data.get('cookies', []))}")
+        print(f"[DEBUG]   - Origins: {len(session_data.get('origins', []))}")
+
+        # Check for important authentication cookies
+        auth_cookies = []
+        for cookie in session_data.get('cookies', []):
+            cookie_name = cookie.get('name', '')
+            cookie_domain = cookie.get('domain', '')
+            if any(keyword in cookie_name.lower() or keyword in cookie_domain.lower()
+                   for keyword in ['spaceiq', 'okta', 'auth', 'session', 'token', 'sid', 'jwt']):
+                auth_cookies.append(f"{cookie_name} @ {cookie_domain}")
+
+        print(f"[DEBUG]   - Auth cookies: {auth_cookies}")
 
         # Launch Playwright
         self.playwright = await async_playwright().start()

@@ -189,8 +189,15 @@ class BrowserStreamSession:
                 # Check if authenticated (redirected to finder page after login)
                 if '/finder' in self.current_url and 'spaceiq.com' in self.current_url:
                     if not self.authenticated:
+                        logger.info(f"✓ Authentication detected for user {self.user_id} at {self.current_url}")
+                        logger.info(f"  Waiting 3 seconds for all cookies to be set...")
+
+                        # Wait a bit for all authentication cookies to be set
+                        # SSO redirects can take time to complete fully
+                        await asyncio.sleep(3)
+
                         self.authenticated = True
-                        logger.info(f"✓✓✓ Authentication SUCCESSFUL for user {self.user_id} at {self.current_url}")
+                        logger.info(f"✓✓✓ Authentication SUCCESSFUL for user {self.user_id}")
         except Exception as e:
             logger.error(f"Navigation callback error: {e}")
 

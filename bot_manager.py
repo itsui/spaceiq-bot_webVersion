@@ -75,13 +75,39 @@ class BotWorker(threading.Thread):
                 raise Exception("Session data is empty - please authenticate again")
 
             # Decrypt session data
+            logger.info("=" * 80)
+            logger.info("SESSION LOAD DEBUG")
+            logger.info(f"Loading session for user {self.user_id}")
+            logger.info(f"Session data length: {len(spaceiq_session.session_data)} bytes")
+
             try:
                 session_data = json.loads(spaceiq_session.session_data)
+                logger.info("Session data was stored as plain JSON")
             except json.JSONDecodeError:
                 # Session data is encrypted, decrypt it first
+                logger.info("Session data is encrypted, decrypting...")
                 from src.utils.auth_encryption import decrypt_data
                 decrypted = decrypt_data(spaceiq_session.session_data)
+                logger.info(f"Decrypted session data length: {len(decrypted)} bytes")
                 session_data = json.loads(decrypted)
+                logger.info("Successfully decrypted and parsed session data")
+
+            # Log session structure
+            logger.info(f"Session structure:")
+            logger.info(f"  - Cookies: {len(session_data.get('cookies', []))} cookies")
+            logger.info(f"  - Origins: {len(session_data.get('origins', []))} origins")
+
+            # Log important cookies
+            important_cookies = []
+            for cookie in session_data.get('cookies', []):
+                cookie_name = cookie.get('name', '')
+                cookie_domain = cookie.get('domain', '')
+                if any(keyword in cookie_name.lower() or keyword in cookie_domain.lower()
+                       for keyword in ['spaceiq', 'okta', 'auth', 'session', 'token', 'sid', 'jwt']):
+                    important_cookies.append(f"{cookie_name} @ {cookie_domain}")
+
+            logger.info(f"Important cookies: {important_cookies}")
+            logger.info("=" * 80)
 
             # Prepare configuration
             config = bot_config.to_dict()
@@ -92,10 +118,12 @@ class BotWorker(threading.Thread):
             # Use secure temporary file with restricted permissions
             fd, temp_path = tempfile.mkstemp(suffix=f'_user{self.user_id}.json', prefix='spaceiq_session_')
             session_file = Path(temp_path)
+            logger.info(f"Writing session to temp file: {session_file}")
             try:
                 # Write with restricted permissions (owner read/write only)
                 with os.fdopen(fd, 'w') as f:
                     json.dump(session_data, f)
+                logger.info(f"Session written to temp file successfully")
                 # Further restrict permissions on Unix systems
                 if hasattr(os, 'chmod'):
                     os.chmod(session_file, 0o600)  # Read/write for owner only
