@@ -110,7 +110,7 @@ class BrowserStreamSession:
 
     async def _process_commands(self):
         """Process commands from the queue"""
-        await asyncio.sleep(0.01)  # Minimal delay for faster response
+        await asyncio.sleep(0.001)  # 1ms delay for maximum responsiveness
 
         while not self.command_queue.empty():
             try:
@@ -160,9 +160,15 @@ class BrowserStreamSession:
             await self.page.mouse.click(x, y)
 
     async def _type_async(self, text: str):
-        """Type (async)"""
+        """Type (async) - optimized for speed"""
         if self.page:
-            await self.page.keyboard.type(text)
+            # For longer text (batched input), use insertText which is much faster
+            # For single chars (special keys), use keyboard.type
+            if len(text) > 3:
+                # Get focused element and insert text directly
+                await self.page.keyboard.insert_text(text)
+            else:
+                await self.page.keyboard.type(text, delay=0)  # No delay between keystrokes
 
     async def _press_async(self, key: str):
         """Press key (async)"""

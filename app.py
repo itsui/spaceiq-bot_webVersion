@@ -831,8 +831,36 @@ def api_stream_viewport():
             updateScreenshot();
             setStatus('Stream active', 0);
 
-            // Forward clicks with proper scaling
-            overlay.addEventListener('click', async (e) => {
+            // Keystroke buffering for faster typing
+            let typeBuffer = '';
+            let typeTimeout = null;
+
+            function flushTypeBuffer() {
+                if (typeBuffer.length > 0) {
+                    const textToSend = typeBuffer;
+                    typeBuffer = '';
+                    // Fire-and-forget - don't await
+                    fetch('/api/auth/type', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: textToSend })
+                    }).catch(e => console.error('Type error:', e));
+                }
+            }
+
+            function bufferKeystroke(char) {
+                typeBuffer += char;
+                clearTimeout(typeTimeout);
+                // Send buffered input after 100ms of no typing (or when buffer gets large)
+                if (typeBuffer.length > 20) {
+                    flushTypeBuffer();
+                } else {
+                    typeTimeout = setTimeout(flushTypeBuffer, 100);
+                }
+            }
+
+            // Forward clicks with proper scaling - OPTIMIZED: fire-and-forget
+            overlay.addEventListener('click', (e) => {
                 const rect = viewport.getBoundingClientRect();
 
                 // Show visual feedback immediately
@@ -862,51 +890,48 @@ def api_stream_viewport():
 
                 // Only send click if within bounds
                 if (x >= 0 && x <= 960 && y >= 0 && y <= 600) {
-                    setStatus(`Click: (${Math.round(x)}, ${Math.round(y)})`, 1500);
-                    try {
-                        const response = await fetch('/api/auth/click', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ x: Math.round(x), y: Math.round(y) })
-                        });
+                    setStatus(`Click: (${Math.round(x)}, ${Math.round(y)})`, 800);
+                    // Fire-and-forget - don't wait for response
+                    fetch('/api/auth/click', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ x: Math.round(x), y: Math.round(y) })
+                    }).then(response => {
                         if (response.ok) {
-                            setStatus(`✓ Click sent: (${Math.round(x)}, ${Math.round(y)})`, 1500);
-                            // Force immediate screenshot update after click
-                            updateScreenshot();
-                        } else {
-                            setStatus(`✗ Click failed`, 2000);
+                            setStatus(`✓ Clicked`, 500);
                         }
-                    } catch (err) {
-                        setStatus(`✗ Error: ${err.message}`, 2000);
-                    }
+                    }).catch(err => {
+                        console.error('Click error:', err);
+                    });
                 } else {
-                    setStatus('Click outside viewport', 1500);
+                    setStatus('Click outside viewport', 1000);
                 }
             });
 
-            // Forward keyboard
-            document.addEventListener('keypress', async (e) => {
-                setStatus(`Type: "${e.key}"`, 1000);
-                await fetch('/api/auth/type', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: e.key })
-                });
-                // Force immediate screenshot update after typing
-                updateScreenshot();
+            // Forward keyboard - OPTIMIZED: buffered typing
+            document.addEventListener('keypress', (e) => {
+                // Buffer regular characters for batched sending
+                if (e.key.length === 1) {
+                    bufferKeystroke(e.key);
+                    setStatus(`Typing...`, 500);
+                }
             });
 
-            document.addEventListener('keydown', async (e) => {
+            document.addEventListener('keydown', (e) => {
+                // Special keys: flush buffer first, then send the special key
                 if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace') {
                     e.preventDefault();
-                    setStatus(`Press: ${e.key}`, 1000);
-                    await fetch('/api/auth/press', {
+
+                    // Flush any buffered text first
+                    flushTypeBuffer();
+
+                    // Then send special key (fire-and-forget)
+                    setStatus(`Press: ${e.key}`, 500);
+                    fetch('/api/auth/press', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ key: e.key })
-                    });
-                    // Force immediate screenshot update after key press
-                    updateScreenshot();
+                    }).catch(e => console.error('Press error:', e));
                 }
             });
         </script>
