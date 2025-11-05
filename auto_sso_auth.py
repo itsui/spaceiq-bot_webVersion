@@ -137,6 +137,17 @@ class AutoSSOMFAHandler:
                         logger.error(self.error)
                         return {'status': 'error', 'error': self.error}
 
+                # Check if stuck on SAML auto-submit page
+                if 'SAMLRequest' in current_url or 'SAMLResponse' in current_url:
+                    logger.info("SAML redirect page detected - checking for auto-submit form")
+                    # Look for auto-submit form
+                    form = await self.page.query_selector('form')
+                    if form:
+                        logger.info("Found SAML form - submitting manually")
+                        await form.evaluate('form => form.submit()')
+                        await asyncio.sleep(2)
+                        continue  # Check URL again after form submit
+
                 # Check for stable URL (no more redirects)
                 if current_url == last_url:
                     stable_url_count += 1
