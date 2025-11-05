@@ -170,6 +170,10 @@ class BrowserStreamSession:
             else:
                 await self.page.keyboard.type(text, delay=0)  # No delay between keystrokes
 
+            # Small delay to let page render the typed text before next screenshot
+            # This prevents screenshots from capturing intermediate/partial render states
+            await asyncio.sleep(0.05)  # 50ms should be enough for DOM to update
+
     async def _press_async(self, key: str):
         """Press key (async)"""
         if self.page:

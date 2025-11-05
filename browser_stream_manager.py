@@ -124,6 +124,9 @@ class BrowserStreamSession:
         try:
             if self.page:
                 await self.page.keyboard.type(text)
+                # Small delay to let page render the typed text before next screenshot
+                # This prevents screenshots from capturing intermediate/partial render states
+                await asyncio.sleep(0.05)  # 50ms should be enough for DOM to update
         except Exception as e:
             logger.error(f"Type error: {e}")
 
