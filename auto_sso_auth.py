@@ -95,53 +95,68 @@ class AutoSSOMFAHandler:
 
             # Step 5: Check what page we landed on
             logger.info("Step 5: Checking authentication result")
-            current_url = self.page.url
 
-            # Case A: MFA required - look for Okta Verify push option
-            if 'okta.com' in current_url and 'select-authenticator' in current_url:
-                logger.info("MFA selection page detected")
-                self.status = "mfa_selection"
+            # Wait for any redirects to complete (SAML redirects can take time)
+            # Try to detect navigation completion by waiting for stable URL
+            logger.info("Waiting for SAML redirects to complete...")
+            stable_url_count = 0
+            last_url = self.page.url
 
-                # Click "Get a push notification" for Okta Verify
-                await self.page.click('[data-se="okta_verify-push"] a')
-                await asyncio.sleep(2)
-
-                # Extract MFA number
-                number_elem = await self.page.query_selector('.phone--number[data-se="challenge-number"]')
-                if number_elem:
-                    self.mfa_number = await number_elem.text_content()
-                    logger.info(f"MFA number extracted: {self.mfa_number}")
-                    self.status = "waiting_for_mfa"
-                    return {
-                        'status': 'mfa_required',
-                        'mfa_number': self.mfa_number,
-                        'message': f'Tap {self.mfa_number} in your Okta Verify app'
-                    }
-                else:
-                    self.error = "Could not extract MFA number"
-                    logger.error(self.error)
-                    return {'status': 'error', 'error': self.error}
-
-            # Case B: MFA skipped or already completed - check if on finder page
-            elif '/finder' in current_url:
-                logger.info("Authentication successful - landed on finder page")
-                self.status = "success"
-                return await self._complete_authentication()
-
-            # Wait a bit more to see if we get redirected
-            else:
-                logger.info(f"Waiting for redirect... Current URL: {current_url}")
-                await asyncio.sleep(5)
+            for i in range(15):  # Wait up to 15 seconds for redirects
+                await asyncio.sleep(1)
                 current_url = self.page.url
 
+                # Check if we reached the destination
                 if '/finder' in current_url:
-                    logger.info("Authentication successful after wait")
+                    logger.info(f"Authentication successful - landed on finder page (after {i+1}s)")
                     self.status = "success"
                     return await self._complete_authentication()
+
+                # Check if we're on MFA selection page
+                if 'okta.com' in current_url and 'select-authenticator' in current_url:
+                    logger.info("MFA selection page detected")
+                    self.status = "mfa_selection"
+
+                    # Click "Get a push notification" for Okta Verify
+                    await self.page.click('[data-se="okta_verify-push"] a')
+                    await asyncio.sleep(2)
+
+                    # Extract MFA number
+                    number_elem = await self.page.query_selector('.phone--number[data-se="challenge-number"]')
+                    if number_elem:
+                        self.mfa_number = await number_elem.text_content()
+                        logger.info(f"MFA number extracted: {self.mfa_number}")
+                        self.status = "waiting_for_mfa"
+                        return {
+                            'status': 'mfa_required',
+                            'mfa_number': self.mfa_number,
+                            'message': f'Tap {self.mfa_number} in your Okta Verify app'
+                        }
+                    else:
+                        self.error = "Could not extract MFA number"
+                        logger.error(self.error)
+                        return {'status': 'error', 'error': self.error}
+
+                # Check for stable URL (no more redirects)
+                if current_url == last_url:
+                    stable_url_count += 1
+                    if stable_url_count >= 3:  # URL stable for 3 seconds
+                        break
                 else:
-                    self.error = f"Unexpected page: {current_url}"
-                    logger.error(self.error)
-                    return {'status': 'error', 'error': self.error}
+                    stable_url_count = 0
+                    last_url = current_url
+                    logger.info(f"Redirect detected: {current_url}")
+
+            # After waiting, check final URL
+            current_url = self.page.url
+            if '/finder' in current_url:
+                logger.info("Authentication successful - landed on finder page after redirects")
+                self.status = "success"
+                return await self._complete_authentication()
+            else:
+                self.error = f"Unexpected page after redirects: {current_url}"
+                logger.error(self.error)
+                return {'status': 'error', 'error': self.error}
 
         except Exception as e:
             self.error = str(e)
