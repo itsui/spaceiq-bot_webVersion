@@ -825,11 +825,13 @@ def api_stream_viewport():
                     }
 
                     if (data.success && data.screenshot) {
-                        // Only update if screenshot changed to reduce DOM operations
+                        // Update sequence first to prevent gaps
+                        lastAppliedSequence = thisSequence;
+
+                        // Only update image if screenshot actually changed to reduce DOM operations
                         if (data.screenshot !== lastScreenshotHash) {
                             viewport.src = 'data:image/jpeg;base64,' + data.screenshot;
                             lastScreenshotHash = data.screenshot;
-                            lastAppliedSequence = thisSequence;
                         }
                     } else {
                         console.warn('No screenshot data:', data);
@@ -841,7 +843,7 @@ def api_stream_viewport():
                 }
             }
 
-            setInterval(updateScreenshot, 350);  // Update every 350ms - reduced for better performance
+            setInterval(updateScreenshot, 500);  // Update every 500ms for smoother experience during typing
             updateScreenshot();
             setStatus('Stream active', 0);
 
