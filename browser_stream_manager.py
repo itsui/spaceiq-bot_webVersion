@@ -139,16 +139,41 @@ class BrowserStreamSession:
     async def save_session(self, output_path: str) -> bool:
         """Save the authenticated session"""
         try:
-            if not self.context or not self.authenticated:
+            if not self.context:
+                logger.error("Cannot save session: browser context is None")
                 return False
+
+            if not self.authenticated:
+                logger.warning("Attempting to save session before authentication detected")
+                # Allow saving even if not authenticated (user might have logged in but URL didn't match)
 
             # Save storage state (cookies, localStorage, etc.)
             await self.context.storage_state(path=output_path)
-            logger.info(f"Session saved for user {self.user_id} to {output_path}")
+
+            # CRITICAL: Wait a moment for file to be written
+            await asyncio.sleep(0.1)
+
+            # Validate that file was written and has content
+            import os
+            session_path = Path(output_path)
+            if not session_path.exists():
+                logger.error(f"Session file was not created at {output_path}")
+                return False
+
+            file_size = os.path.getsize(output_path)
+            if file_size == 0:
+                logger.error(f"Session file is empty (0 bytes) at {output_path}")
+                return False
+
+            if file_size < 10:  # Minimum valid JSON would be at least 10 bytes
+                logger.error(f"Session file is too small ({file_size} bytes), likely invalid")
+                return False
+
+            logger.info(f"✓ Session saved successfully ({file_size} bytes) for user {self.user_id}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to save session: {e}", exc_info=True)
+            logger.error(f"Failed to save session for user {self.user_id}: {e}", exc_info=True)
             return False
 
     async def stop(self):

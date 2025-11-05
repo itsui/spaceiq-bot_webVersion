@@ -189,6 +189,9 @@ class BrowserStreamSession:
             # Save storage state
             await self.context.storage_state(path=path)
 
+            # CRITICAL: Wait a moment for file to be written
+            await asyncio.sleep(0.1)
+
             # Validate that file was written and has content
             from pathlib import Path
             import os
