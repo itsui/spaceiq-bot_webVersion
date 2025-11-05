@@ -1,0 +1,7 @@
+tunnel: 833324ce-6898-44a7-948b-84457db19d57
+credentials-file: C:\Users\felip\.cloudflared\833324ce-6898-44a7-948b-84457db19d57.json
+
+ingress:
+  - hostname: felipevargas.xyz
+    service: http://localhost:5000
+  - service: http_status:404

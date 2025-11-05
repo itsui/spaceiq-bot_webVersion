@@ -23,10 +23,11 @@ class SpaceIQBookingPage(BasePage):
     Customized for the floor map-based booking system.
     """
 
-    def __init__(self, page: Page, screenshots_dir: Optional[str] = None):
+    def __init__(self, page: Page, screenshots_dir: Optional[str] = None, web_mode: bool = False):
         super().__init__(page, screenshots_dir=screenshots_dir)
         self.booking_api = BookingAPI(page)
         self.desk_detector = DeskDetector()
+        self.web_mode = web_mode  # Flag to indicate if running in web/headless mode
 
     def load_desk_positions(self) -> Dict[str, Tuple[int, int]]:
         """
@@ -64,12 +65,13 @@ class SpaceIQBookingPage(BasePage):
             print(f"❌ Error loading desk positions: {e}")
             return {}
 
-    async def check_and_wait_for_login(self, expected_path: str):
+    async def check_and_wait_for_login(self, expected_path: str, web_mode: bool = False):
         """
         Check if user got logged out and wait for manual login.
 
         Args:
             expected_path: Expected URL path after login (e.g., "/finder/building/LC/floor/2")
+            web_mode: If True, fails immediately instead of waiting (for remote/web deployment)
         """
         current_url = self.page.url
 
@@ -79,6 +81,17 @@ class SpaceIQBookingPage(BasePage):
             print("=" * 70)
             print(f"\nCurrent URL: {current_url}")
             print(f"Expected URL: https://main.spaceiq.com{expected_path}")
+
+            # If running in web mode (remote/headless), can't wait for manual login
+            if web_mode:
+                print("\n⚠️  Running in web mode - cannot open browser for manual login")
+                print("Please re-authenticate via the web interface:")
+                print("  1. Go to your dashboard")
+                print("  2. Click 'Authenticate SpaceIQ'")
+                print("  3. Complete the login process")
+                print("=" * 70 + "\n")
+                raise Exception("Session expired. Please re-authenticate via the web interface.")
+
             print("\nPlease login in the browser window...")
             print("Bot will automatically continue after successful login.")
             print("=" * 70 + "\n")
@@ -113,7 +126,7 @@ class SpaceIQBookingPage(BasePage):
         await self.navigate(url)
 
         # Check if redirected to login page
-        await self.check_and_wait_for_login(f"/finder/building/{building}/floor/{floor}")
+        await self.check_and_wait_for_login(f"/finder/building/{building}/floor/{floor}", web_mode=self.web_mode)
 
         # Verbose output suppressed - using pretty output in workflow
         # print(f"       Navigated to Building {building}, Floor {floor}")

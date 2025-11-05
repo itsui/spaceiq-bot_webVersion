@@ -243,7 +243,7 @@
         updateBotStatus();
 
         // Start auto-refresh
-        statusUpdateInterval = setInterval(updateBotStatus, 1000);  // Update every second for more responsive logs
+        statusUpdateInterval = setInterval(updateBotStatus, 2000);  // Update every 2 seconds
         authCheckInterval = setInterval(checkAuthStatus, 10000);
 
         // Start real-time counters
@@ -294,35 +294,8 @@
 
     // Start SpaceIQ authentication
     async function startSpaceIQAuth() {
-        try {
-            const authBtn = document.getElementById('auth-btn');
-            authBtn.disabled = true;
-            authBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
-
-            const data = await apiCall('/api/spaceiq/auth/start', {method: 'POST'});
-
-            if (data.success) {
-                showToast('Browser window will open for you to log in to SpaceIQ', 'info');
-
-                // Poll for completion
-                const pollInterval = setInterval(async () => {
-                    const status = await apiCall('/api/spaceiq/auth/status');
-                    if (status.completed) {
-                        clearInterval(pollInterval);
-                        showToast('Authentication successful!', 'success');
-                        checkAuthStatus();
-                    }
-                }, 2000);
-            } else {
-                showToast(data.message || 'Failed to start authentication', 'error');
-                authBtn.disabled = false;
-                authBtn.innerHTML = '<i class="bi bi-key"></i> Authenticate with SpaceIQ';
-            }
-        } catch (error) {
-            showToast('Error starting authentication: ' + error.message, 'error');
-            authBtn.disabled = false;
-            authBtn.innerHTML = '<i class="bi bi-key"></i> Authenticate with SpaceIQ';
-        }
+        // Redirect to browser stream page for remote authentication
+        window.location.href = '/auth/browser-stream';
     }
 
     // Load configuration summary
@@ -468,6 +441,18 @@
                 if (!botStartTime && status.started_at) {
                     botStartTime = new Date(status.started_at);
                 }
+            } else if (status.status === 'session_expired') {
+                indicator.className = 'status-indicator status-error';
+                statusText.textContent = 'SESSION EXPIRED';
+                statusText.className = 'fw-bold text-warning';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+
+                // Auto-redirect immediately to re-auth page
+                window.location.href = '/auth/browser-stream';
+
+                botStartTime = null;
+                currentCountdown = null;
             } else if (status.status === 'error') {
                 indicator.className = 'status-indicator status-error';
                 statusText.textContent = 'ERROR';

@@ -45,7 +45,11 @@ class BotWorker(threading.Thread):
             with self.app_context:
                 bot_instance = BotInstance.query.filter_by(user_id=self.user_id).first()
                 if bot_instance:
-                    bot_instance.status = 'error'
+                    # Check if session expired
+                    if 'session expired' in str(e).lower():
+                        bot_instance.status = 'session_expired'
+                    else:
+                        bot_instance.status = 'error'
                     bot_instance.error_message = str(e)
                     bot_instance.stopped_at = datetime.utcnow()
                     db.session.commit()

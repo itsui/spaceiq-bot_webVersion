@@ -352,6 +352,7 @@ def api_stop_bot():
 
 @app.route('/api/bot/status')
 @login_required
+@limiter.exempt  # Exempt from rate limiting - used for real-time updates
 def api_bot_status():
     """Get bot status for current user"""
     try:
@@ -649,6 +650,476 @@ def api_get_live_logs():
             'message': f'Error: {str(e)}',
             'logs': []
         }), 500
+
+
+# ============================================================================
+# BROWSER STREAMING FOR REMOTE AUTHENTICATION
+# ============================================================================
+
+from browser_stream_manager_fixed import stream_manager
+
+@app.route('/auth/browser-stream')
+@login_required
+def browser_stream_page():
+    """Display the browser streaming page for authentication"""
+    return render_template('browser_stream.html')
+
+
+@app.route('/api/auth/start-stream', methods=['POST'])
+@login_required
+def api_start_browser_stream():
+    """Start a browser streaming session"""
+    try:
+        # Handle both JSON and form data
+        if request.is_json:
+            target_url = request.json.get('url', 'https://main.spaceiq.com/login')
+        else:
+            target_url = 'https://main.spaceiq.com/login'
+
+        success = stream_manager.start_session(current_user.id, target_url)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'stream_url': f'/api/auth/stream-viewport',
+                'message': 'Browser stream started'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to start browser stream'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error starting browser stream: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/auth/stream-viewport')
+@login_required
+def api_stream_viewport():
+    """Stream browser viewport as HTML page with auto-refreshing screenshot"""
+    html = '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            html, body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: #1a1a1a;
+            }
+            #viewport {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                display: block;
+            }
+            #overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                cursor: crosshair;
+            }
+            .click-indicator {
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                border: 3px solid #667eea;
+                border-radius: 50%;
+                pointer-events: none;
+                animation: clickPulse 0.6s ease-out;
+                transform: translate(-50%, -50%);
+            }
+            @keyframes clickPulse {
+                0% {
+                    transform: translate(-50%, -50%) scale(0.3);
+                    opacity: 1;
+                    border-width: 4px;
+                }
+                100% {
+                    transform: translate(-50%, -50%) scale(1);
+                    opacity: 0;
+                    border-width: 1px;
+                }
+            }
+            #status {
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                padding: 5px 10px;
+                border-radius: 5px;
+                font-size: 12px;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <img id="viewport" alt="Browser viewport" />
+        <div id="overlay"></div>
+        <div id="status">Ready</div>
+        <script>
+            const viewport = document.getElementById('viewport');
+            const overlay = document.getElementById('overlay');
+            const statusDiv = document.getElementById('status');
+
+            function setStatus(text, duration = 2000) {
+                statusDiv.textContent = text;
+                statusDiv.style.opacity = '1';
+                if (duration > 0) {
+                    setTimeout(() => {
+                        statusDiv.style.opacity = '0.3';
+                    }, duration);
+                }
+            }
+
+            function showClickFeedback(x, y) {
+                const indicator = document.createElement('div');
+                indicator.className = 'click-indicator';
+                indicator.style.left = x + 'px';
+                indicator.style.top = y + 'px';
+                document.body.appendChild(indicator);
+                setTimeout(() => indicator.remove(), 600);
+            }
+
+            // Update screenshot with proper memory management
+            let isUpdating = false;
+            let lastScreenshotHash = '';
+
+            async function updateScreenshot() {
+                // Prevent overlapping requests
+                if (isUpdating) return;
+                isUpdating = true;
+
+                try {
+                    const response = await fetch('/api/auth/screenshot', {
+                        cache: 'no-store'  // Prevent browser caching
+                    });
+                    if (!response.ok) {
+                        console.error('Screenshot fetch failed:', response.status);
+                        return;
+                    }
+                    const data = await response.json();
+                    if (data.success && data.screenshot) {
+                        // Only update if screenshot changed to reduce DOM operations
+                        if (data.screenshot !== lastScreenshotHash) {
+                            viewport.src = 'data:image/jpeg;base64,' + data.screenshot;
+                            lastScreenshotHash = data.screenshot;
+                        }
+                    } else {
+                        console.warn('No screenshot data:', data);
+                    }
+                } catch (e) {
+                    console.error('Screenshot update failed:', e);
+                } finally {
+                    isUpdating = false;
+                }
+            }
+
+            setInterval(updateScreenshot, 350);  // Update every 350ms - reduced for better performance
+            updateScreenshot();
+            setStatus('Stream active', 0);
+
+            // Forward clicks with proper scaling
+            overlay.addEventListener('click', async (e) => {
+                const rect = viewport.getBoundingClientRect();
+
+                // Show visual feedback immediately
+                showClickFeedback(e.clientX, e.clientY);
+
+                // Account for object-fit: contain scaling
+                const imgAspect = 960 / 600;  // Browser viewport aspect ratio (75% resolution)
+                const displayAspect = rect.width / rect.height;
+
+                let displayWidth = rect.width;
+                let displayHeight = rect.height;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                if (displayAspect > imgAspect) {
+                    // Letterbox (black bars on sides)
+                    displayWidth = rect.height * imgAspect;
+                    offsetX = (rect.width - displayWidth) / 2;
+                } else {
+                    // Pillarbox (black bars on top/bottom)
+                    displayHeight = rect.width / imgAspect;
+                    offsetY = (rect.height - displayHeight) / 2;
+                }
+
+                const x = ((e.clientX - rect.left - offsetX) / displayWidth) * 960;
+                const y = ((e.clientY - rect.top - offsetY) / displayHeight) * 600;
+
+                // Only send click if within bounds
+                if (x >= 0 && x <= 960 && y >= 0 && y <= 600) {
+                    setStatus(`Click: (${Math.round(x)}, ${Math.round(y)})`, 1500);
+                    try {
+                        const response = await fetch('/api/auth/click', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ x: Math.round(x), y: Math.round(y) })
+                        });
+                        if (response.ok) {
+                            setStatus(`✓ Click sent: (${Math.round(x)}, ${Math.round(y)})`, 1500);
+                            // Force immediate screenshot update after click
+                            updateScreenshot();
+                        } else {
+                            setStatus(`✗ Click failed`, 2000);
+                        }
+                    } catch (err) {
+                        setStatus(`✗ Error: ${err.message}`, 2000);
+                    }
+                } else {
+                    setStatus('Click outside viewport', 1500);
+                }
+            });
+
+            // Forward keyboard
+            document.addEventListener('keypress', async (e) => {
+                setStatus(`Type: "${e.key}"`, 1000);
+                await fetch('/api/auth/type', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: e.key })
+                });
+                // Force immediate screenshot update after typing
+                updateScreenshot();
+            });
+
+            document.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    setStatus(`Press: ${e.key}`, 1000);
+                    await fetch('/api/auth/press', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: e.key })
+                    });
+                    // Force immediate screenshot update after key press
+                    updateScreenshot();
+                }
+            });
+        </script>
+    </body>
+    </html>
+    '''
+    return html
+
+
+@app.route('/api/auth/screenshot')
+@login_required
+@limiter.exempt
+def api_get_screenshot():
+    """Get current browser screenshot"""
+    try:
+        session = stream_manager.get_session(current_user.id)
+        if not session:
+            logger.warning(f"No session found for user {current_user.id}")
+            return jsonify({'error': 'No active session', 'success': False}), 404
+
+        screenshot = session.get_screenshot()
+
+        if not screenshot:
+            logger.warning(f"No screenshot returned for user {current_user.id}")
+            return jsonify({'success': False, 'screenshot': None})
+
+        return jsonify({
+            'success': True,
+            'screenshot': screenshot
+        })
+
+    except Exception as e:
+        logger.error(f"Screenshot error: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auth/click', methods=['POST'])
+@login_required
+def api_browser_click():
+    """Forward click to browser"""
+    try:
+        data = request.json
+        session = stream_manager.get_session(current_user.id)
+        if session:
+            session.click(int(data['x']), int(data['y']))
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auth/type', methods=['POST'])
+@login_required
+def api_browser_type():
+    """Forward typing to browser"""
+    try:
+        data = request.json
+        session = stream_manager.get_session(current_user.id)
+        if session:
+            session.type_text(data['text'])
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auth/press', methods=['POST'])
+@login_required
+def api_browser_press():
+    """Forward key press to browser"""
+    try:
+        data = request.json
+        session = stream_manager.get_session(current_user.id)
+        if session:
+            session.press_key(data['key'])
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auth/check-stream-status')
+@login_required
+@limiter.exempt
+def api_check_stream_status():
+    """Check authentication status"""
+    try:
+        session = stream_manager.get_session(current_user.id)
+        if not session:
+            return jsonify({
+                'authenticated': False,
+                'url': None
+            })
+
+        return jsonify({
+            'authenticated': session.authenticated,
+            'url': session.current_url
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/auth/stop-stream', methods=['POST'])
+@login_required
+def api_stop_browser_stream():
+    """Stop browser streaming session"""
+    try:
+        session = stream_manager.get_session(current_user.id)
+
+        # Save session if authenticated
+        if session and session.authenticated:
+            # Save to user's SpaceIQ session in database
+            from src.utils.auth_encryption import encrypt_data
+            import tempfile
+            import os
+
+            # Save to temp file first - use mkstemp to create file
+            temp_fd, temp_path_str = tempfile.mkstemp(suffix='.json')
+            os.close(temp_fd)  # Close fd, we'll use the path
+            temp_path = Path(temp_path_str)
+
+            session.save_session(str(temp_path))
+
+            # Read and encrypt
+            with open(temp_path, 'r') as f:
+                session_data = f.read()
+
+            encrypted_data = encrypt_data(session_data)
+
+            # Save to database
+            spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+            if not spaceiq_session:
+                spaceiq_session = SpaceIQSession(user_id=current_user.id)
+                db.session.add(spaceiq_session)
+
+            spaceiq_session.session_data = encrypted_data
+            spaceiq_session.last_validated = datetime.utcnow()
+            spaceiq_session.is_valid = True
+            db.session.commit()
+
+            # Cleanup
+            temp_path.unlink()
+
+            logger.info(f"Session saved for user {current_user.id}")
+
+        stream_manager.stop_session(current_user.id)
+
+        return jsonify({
+            'success': True,
+            'message': 'Stream stopped and session saved' if session and session.authenticated else 'Stream stopped'
+        })
+
+    except Exception as e:
+        logger.error(f"Error stopping stream: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auth/save-stream-session', methods=['POST'])
+@login_required
+def api_save_stream_session():
+    """Save authenticated session from browser stream"""
+    try:
+        session = stream_manager.get_session(current_user.id)
+
+        if not session:
+            return jsonify({'success': False, 'error': 'No active session'}), 400
+
+        if not session.authenticated:
+            return jsonify({'success': False, 'error': 'Not authenticated yet'}), 400
+
+        # Save session to database
+        from src.utils.auth_encryption import encrypt_data
+        import tempfile
+        import os
+
+        # Save to temp file first - use mkstemp to create file
+        temp_fd, temp_path_str = tempfile.mkstemp(suffix='.json')
+        os.close(temp_fd)  # Close fd, we'll use the path
+        temp_path = Path(temp_path_str)
+
+        success = session.save_session(str(temp_path))
+
+        if not success:
+            return jsonify({'success': False, 'error': 'Failed to save session'}), 500
+
+        # Read and encrypt
+        with open(temp_path, 'r') as f:
+            session_data = f.read()
+
+        encrypted_data = encrypt_data(session_data)
+
+        # Save to database
+        spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+        if not spaceiq_session:
+            spaceiq_session = SpaceIQSession(user_id=current_user.id)
+            db.session.add(spaceiq_session)
+
+        spaceiq_session.session_data = encrypted_data
+        spaceiq_session.last_validated = datetime.utcnow()
+        spaceiq_session.is_valid = True
+        db.session.commit()
+
+        # Cleanup
+        temp_path.unlink()
+
+        logger.info(f"✓✓✓ Session successfully saved to database for user {current_user.id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Session saved successfully'
+        })
+
+    except Exception as e:
+        logger.error(f"Error saving stream session: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============================================================================

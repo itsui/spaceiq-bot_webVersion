@@ -778,7 +778,15 @@ async def run_multi_date_booking_web_mode(
         if 'spaceiq_session_' in auth_file:
             # Extract user_id from filename without logging full path
             filename = Path(auth_file).name
-            user_id = int(filename.split('spaceiq_session_')[1].split('.json')[0])
+            # Handle new format: spaceiq_session_RANDOM_userID.json
+            # Extract ID from _userID suffix
+            import re
+            user_match = re.search(r'_user(\d+)\.json', filename)
+            if user_match:
+                user_id = int(user_match.group(1))
+            else:
+                # Fallback for old format: spaceiq_session_ID.json
+                user_id = int(filename.split('spaceiq_session_')[1].split('.json')[0])
 
             # Update in database
             if app_context:
@@ -852,7 +860,7 @@ async def run_multi_date_booking_web_mode(
         # Initialize session
         context = await session_manager.initialize()
         page = await context.new_page()
-        booking_page = SpaceIQBookingPage(page, screenshots_dir=screenshots_dir)
+        booking_page = SpaceIQBookingPage(page, screenshots_dir=screenshots_dir, web_mode=True)
 
         # Navigate to SpaceIQ
         web_logger.info("Navigating to SpaceIQ...")
@@ -891,7 +899,7 @@ async def run_multi_date_booking_web_mode(
 
                     context = await session_manager.initialize()
                     page = await context.new_page()
-                    booking_page = SpaceIQBookingPage(page, screenshots_dir=screenshots_dir)
+                    booking_page = SpaceIQBookingPage(page, screenshots_dir=screenshots_dir, web_mode=True)
                     await booking_page.navigate_to_floor_view(building, floor)
 
                     web_logger.info("Browser restarted successfully")
