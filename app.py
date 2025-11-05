@@ -1248,7 +1248,7 @@ _active_auth_sessions = {}
 
 @app.route('/api/auth/auto-start', methods=['POST'])
 @login_required
-async def api_auto_auth_start():
+def api_auto_auth_start():
     """Start automated SSO authentication"""
     try:
         data = request.json
@@ -1258,18 +1258,26 @@ async def api_auto_auth_start():
         if not email or not password:
             return jsonify({'success': False, 'error': 'Email and password required'}), 400
 
-        # Clean up any existing session for this user
-        if current_user.id in _active_auth_sessions:
-            old_handler = _active_auth_sessions[current_user.id]
-            await old_handler.cleanup()
+        # Run async function synchronously
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-        # Create new authentication handler
-        from auto_sso_auth import AutoSSOMFAHandler
-        handler = AutoSSOMFAHandler(current_user.id)
-        _active_auth_sessions[current_user.id] = handler
+        try:
+            # Clean up any existing session for this user
+            if current_user.id in _active_auth_sessions:
+                old_handler = _active_auth_sessions[current_user.id]
+                loop.run_until_complete(old_handler.cleanup())
 
-        # Start authentication in background
-        result = await handler.start_authentication(email, password)
+            # Create new authentication handler
+            from auto_sso_auth import AutoSSOMFAHandler
+            handler = AutoSSOMFAHandler(current_user.id)
+            _active_auth_sessions[current_user.id] = handler
+
+            # Start authentication
+            result = loop.run_until_complete(handler.start_authentication(email, password))
+        finally:
+            loop.close()
 
         if result['status'] == 'success':
             # Authentication completed without MFA - save session
@@ -1326,7 +1334,7 @@ async def api_auto_auth_start():
 
 @app.route('/api/auth/auto-status')
 @login_required
-async def api_auto_auth_status():
+def api_auto_auth_status():
     """Poll authentication status (used when waiting for MFA)"""
     try:
         handler = _active_auth_sessions.get(current_user.id)
@@ -1335,41 +1343,49 @@ async def api_auto_auth_status():
 
         # Check if MFA was completed
         if handler.status == 'waiting_for_mfa_approval':
-            # Try to wait for completion (with short timeout for polling)
+            # Run async function synchronously
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
             try:
-                result = await asyncio.wait_for(
-                    handler.wait_for_mfa_completion(timeout=5),
-                    timeout=6
-                )
+                # Try to wait for completion (with short timeout for polling)
+                try:
+                    result = loop.run_until_complete(asyncio.wait_for(
+                        handler.wait_for_mfa_completion(timeout=5),
+                        timeout=6
+                    ))
 
-                if result['status'] == 'success':
-                    # Save session
-                    session_data = result['session_data']
-                    from src.utils.auth_encryption import encrypt_data
-                    encrypted_data = encrypt_data(json.dumps(session_data))
+                    if result['status'] == 'success':
+                        # Save session
+                        session_data = result['session_data']
+                        from src.utils.auth_encryption import encrypt_data
+                        encrypted_data = encrypt_data(json.dumps(session_data))
 
-                    spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
-                    if not spaceiq_session:
-                        spaceiq_session = SpaceIQSession(user_id=current_user.id)
-                        db.session.add(spaceiq_session)
+                        spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+                        if not spaceiq_session:
+                            spaceiq_session = SpaceIQSession(user_id=current_user.id)
+                            db.session.add(spaceiq_session)
 
-                    spaceiq_session.session_data = encrypted_data
-                    spaceiq_session.last_validated = datetime.utcnow()
-                    spaceiq_session.is_valid = True
-                    db.session.commit()
+                        spaceiq_session.session_data = encrypted_data
+                        spaceiq_session.last_validated = datetime.utcnow()
+                        spaceiq_session.is_valid = True
+                        db.session.commit()
 
-                    # Clean up
-                    del _active_auth_sessions[current_user.id]
+                        # Clean up
+                        del _active_auth_sessions[current_user.id]
 
-                    logger.info(f"✓ Auto-authentication completed for user {current_user.id} (with MFA)")
-                    return jsonify({
-                        'status': 'success',
-                        'message': 'Authentication successful'
-                    })
+                        logger.info(f"✓ Auto-authentication completed for user {current_user.id} (with MFA)")
+                        return jsonify({
+                            'status': 'success',
+                            'message': 'Authentication successful'
+                        })
 
-            except asyncio.TimeoutError:
-                # Still waiting - return current status
-                return jsonify(handler.get_status())
+                except asyncio.TimeoutError:
+                    # Still waiting - return current status
+                    return jsonify(handler.get_status())
+            finally:
+                loop.close()
 
         # Return current status
         return jsonify(handler.get_status())
