@@ -656,7 +656,11 @@ def api_get_live_logs():
 # BROWSER STREAMING FOR REMOTE AUTHENTICATION
 # ============================================================================
 
-from browser_stream_manager_fixed import stream_manager
+# Import CDP manager for faster performance (much better than screenshot polling)
+from cdp_browser_manager import cdp_stream_manager as stream_manager
+
+# Old screenshot-based manager (slower but works everywhere)
+# from browser_stream_manager_fixed import stream_manager
 
 @app.route('/auth/browser-stream')
 @login_required
@@ -827,7 +831,7 @@ def api_stream_viewport():
                 }
             }
 
-            setInterval(updateScreenshot, 350);  // Update every 350ms - reduced for better performance
+            setInterval(updateScreenshot, 150);  // Update every 150ms - CDP is much faster than Playwright screenshots
             updateScreenshot();
             setStatus('Stream active', 0);
 
@@ -839,7 +843,7 @@ def api_stream_viewport():
                 showClickFeedback(e.clientX, e.clientY);
 
                 // Account for object-fit: contain scaling
-                const imgAspect = 960 / 600;  // Browser viewport aspect ratio (75% resolution)
+                const imgAspect = 800 / 600;  // Browser viewport aspect ratio (CDP optimized)
                 const displayAspect = rect.width / rect.height;
 
                 let displayWidth = rect.width;
@@ -857,11 +861,11 @@ def api_stream_viewport():
                     offsetY = (rect.height - displayHeight) / 2;
                 }
 
-                const x = ((e.clientX - rect.left - offsetX) / displayWidth) * 960;
+                const x = ((e.clientX - rect.left - offsetX) / displayWidth) * 800;
                 const y = ((e.clientY - rect.top - offsetY) / displayHeight) * 600;
 
                 // Only send click if within bounds
-                if (x >= 0 && x <= 960 && y >= 0 && y <= 600) {
+                if (x >= 0 && x <= 800 && y >= 0 && y <= 600) {
                     setStatus(`Click: (${Math.round(x)}, ${Math.round(y)})`, 1500);
                     try {
                         const response = await fetch('/api/auth/click', {
