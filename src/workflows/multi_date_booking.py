@@ -220,20 +220,26 @@ class MultiDateBookingWorkflow:
             # Validate session first (especially important for headless mode)
             if self.headless:
                 # print("[INFO] Headless mode requested - validating session first...")
-                from src.auth.session_validator import validate_and_refresh_session
+                from src.auth.session_validator import validate_and_refresh_session, SessionExpiredException
 
-                session_valid, use_headless = await validate_and_refresh_session(
-                    force_headless=True,
-                    auth_file=self.session_manager.auth_file
-                )
+                try:
+                    session_valid, use_headless = await validate_and_refresh_session(
+                        force_headless=True,
+                        auth_file=self.session_manager.auth_file
+                    )
 
-                if not session_valid:
-                    print("\n[ERROR] Session validation failed. Cannot continue.")
-                    return {}
+                    if not session_valid:
+                        print("\n[ERROR] Session validation failed. Cannot continue.")
+                        return {}
 
-                # Update headless setting based on validation result
-                self.headless = use_headless
-                self.session_manager.headless = use_headless
+                    # Update headless setting based on validation result
+                    self.headless = use_headless
+                    self.session_manager.headless = use_headless
+
+                except SessionExpiredException as e:
+                    error_msg = "Session expired. Please re-authenticate via the web interface."
+                    print(f"\n[ERROR] {error_msg}")
+                    raise Exception(error_msg) from e
 
             # Initialize session
             context = await self.session_manager.initialize()
@@ -850,18 +856,24 @@ async def run_multi_date_booking_web_mode(
         # Validate session for headless mode
         if headless:
             web_logger.info("Validating session for headless mode...")
-            from src.auth.session_validator import validate_and_refresh_session
+            from src.auth.session_validator import validate_and_refresh_session, SessionExpiredException
 
-            session_valid, use_headless = await validate_and_refresh_session(
-                force_headless=True,
-                auth_file=session_manager.auth_file
-            )
-            if not session_valid:
-                web_logger.error("Session validation failed")
-                return {"error": "Session validation failed", "success": False}
+            try:
+                session_valid, use_headless = await validate_and_refresh_session(
+                    force_headless=True,
+                    auth_file=session_manager.auth_file
+                )
+                if not session_valid:
+                    web_logger.error("Session validation failed")
+                    return {"error": "Session validation failed", "success": False}
 
-            headless = use_headless
-            session_manager.headless = use_headless
+                headless = use_headless
+                session_manager.headless = use_headless
+
+            except SessionExpiredException as e:
+                error_msg = "Session expired. Please re-authenticate via the web interface."
+                web_logger.error(error_msg)
+                raise Exception(error_msg) from e
 
         # Initialize session
         context = await session_manager.initialize()

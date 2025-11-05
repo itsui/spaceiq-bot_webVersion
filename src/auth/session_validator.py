@@ -103,120 +103,25 @@ async def validate_and_refresh_session(force_headless: bool = False, auth_file: 
 
 async def _run_session_warmer(headless: bool, force_headless: bool) -> tuple[bool, bool]:
     """
-    Run session warming with visible browser for login.
+    Raise exception to tell user to re-authenticate via web interface.
+
+    NOTE: This function used to open a headed browser for login, but that
+    doesn't work in production. Now we raise an exception that the bot
+    catches and tells the user to go to /auth/auto.
 
     Args:
         headless: Whether to run warmer in headless mode (always False for login)
         force_headless: Whether user wants headless mode for actual booking
 
     Returns:
-        Tuple of (success, should_use_headless)
+        Never returns - always raises exception
     """
-    print("\n" + "=" * 70)
-    print("         SESSION EXPIRED - OPENING BROWSER FOR LOGIN")
-    print("=" * 70)
-    print("\nYour session has expired. Opening browser for re-login...")
-    print("After you login, the bot will continue automatically.")
-    if force_headless:
-        print("Booking will resume in HEADLESS mode after login.")
-    print("=" * 70 + "\n")
+    # Raise exception with specific message for the user
+    raise SessionExpiredException(
+        "Session expired. Please re-authenticate via the web interface at /auth/auto"
+    )
 
-    try:
-        async with async_playwright() as p:
-            # Always use visible browser for login
-            browser = await p.chromium.launch(
-                headless=False,  # Must be visible for SSO login
-                channel="chrome"
-            )
 
-            # Create new context (fresh session)
-            context = await browser.new_context(
-                viewport={'width': 1920, 'height': 1080}
-            )
-
-            page = await context.new_page()
-
-            # Navigate to the app
-            target_url = f"{Config.SPACEIQ_URL.rstrip('/')}/finder/building/LC/floor/2"
-            print(f"[INFO] Navigating to {target_url}")
-
-            try:
-                await page.goto(target_url, timeout=30000, wait_until="domcontentloaded")
-            except:
-                pass  # Might timeout if redirected to login
-
-            await asyncio.sleep(2)
-            current_url = page.url
-
-            # Check if on login page
-            if "/login" in current_url:
-                print("\n" + "=" * 70)
-                print("         PLEASE LOGIN")
-                print("=" * 70)
-                print("\nBrowser window is now open.")
-                print("Please complete these steps:")
-                print("  1. Click 'Login with SSO'")
-                print("  2. Enter your company email")
-                print("  3. Complete SSO authentication")
-                print("  4. Wait until you see the floor map")
-                print("\nBot will detect login automatically...")
-                print("=" * 70 + "\n")
-
-                # Wait for login (URL changes from /login to /finder)
-                try:
-                    await page.wait_for_url(
-                        lambda url: "/login" not in url and "/finder/building/" in url,
-                        timeout=300000  # 5 minutes
-                    )
-                    print("\n[SUCCESS] Login detected!")
-                    await asyncio.sleep(2)
-
-                except Exception as e:
-                    print(f"\n[ERROR] Login timeout: {e}")
-                    print("Please try again or check your SSO settings.")
-                    await browser.close()
-                    return (False, False)
-
-            else:
-                print("[INFO] Already logged in (session restored)")
-
-            # Save the session
-            print("[INFO] Saving session...")
-            Config.AUTH_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-            # Save to temporary file first
-            temp_file = Config.AUTH_STATE_FILE.parent / "temp_auth.json"
-            await context.storage_state(path=str(temp_file))
-
-            # Read and encrypt the session
-            import json
-            from src.utils.auth_encryption import save_encrypted_session
-
-            with open(temp_file, 'r', encoding='utf-8') as f:
-                session_data = json.load(f)
-
-            # Save with encryption
-            if save_encrypted_session(Config.AUTH_STATE_FILE, session_data):
-                temp_file.unlink()
-                print(f"[SUCCESS] Session saved and encrypted: {Config.AUTH_STATE_FILE}")
-            else:
-                temp_file.rename(Config.AUTH_STATE_FILE)
-                print(f"[WARNING] Session saved without encryption: {Config.AUTH_STATE_FILE}")
-
-            # Close browser
-            await browser.close()
-
-            print("\n" + "=" * 70)
-            print("         SESSION REFRESHED - CONTINUING BOOKING")
-            print("=" * 70)
-            if force_headless:
-                print("\nResuming in HEADLESS mode (no browser window)")
-            print("=" * 70 + "\n")
-
-            return (True, force_headless)
-
-    except Exception as e:
-        print(f"\n[ERROR] Session warming failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return (False, False)
+class SessionExpiredException(Exception):
+    """Raised when session is expired and needs re-authentication"""
+    pass

@@ -109,6 +109,9 @@ class AutoSSOMFAHandler:
                 # Check if we reached the destination
                 if '/finder' in current_url:
                     logger.info(f"Authentication successful - landed on finder page (after {i+1}s)")
+                    # Wait additional time for page to fully load and establish session
+                    logger.info("Waiting for page to fully load and establish session...")
+                    await asyncio.sleep(5)  # Give SpaceIQ time to set all cookies/session state
                     self.status = "success"
                     return await self._complete_authentication()
 
@@ -180,6 +183,9 @@ class AutoSSOMFAHandler:
             current_url = self.page.url
             if '/finder' in current_url:
                 logger.info("Authentication successful - landed on finder page after redirects")
+                # Wait additional time for page to fully load and establish session
+                logger.info("Waiting for page to fully load and establish session...")
+                await asyncio.sleep(5)  # Give SpaceIQ time to set all cookies/session state
                 self.status = "success"
                 return await self._complete_authentication()
             else:
@@ -207,6 +213,9 @@ class AutoSSOMFAHandler:
             await self.page.wait_for_url('**/finder/**', timeout=timeout * 1000)
 
             logger.info("MFA completed successfully")
+            # Wait additional time for page to fully load and establish session
+            logger.info("Waiting for page to fully load and establish session...")
+            await asyncio.sleep(5)  # Give SpaceIQ time to set all cookies/session state
             self.status = "success"
             return await self._complete_authentication()
 
