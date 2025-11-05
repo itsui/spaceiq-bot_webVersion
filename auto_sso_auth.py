@@ -110,9 +110,15 @@ class AutoSSOMFAHandler:
                 # Check if we reached the destination
                 if '/finder' in current_url:
                     logger.info(f"Authentication successful - landed on finder page (after {i+1}s)")
-                    # Wait additional time for page to fully load and establish session
-                    logger.info("Waiting for page to fully load and establish session...")
-                    await asyncio.sleep(5)  # Give SpaceIQ time to set all cookies/session state
+                    # Wait for page to fully load - use network idle instead of fixed sleep
+                    logger.info("Waiting for network idle to ensure all cookies are set...")
+                    try:
+                        await self.page.wait_for_load_state('networkidle', timeout=10000)
+                        logger.info("Network idle detected")
+                    except:
+                        logger.warning("Network idle timeout - continuing anyway")
+                        await asyncio.sleep(5)  # Fallback to fixed wait
+
                     self.status = "success"
                     return await self._complete_authentication()
 
@@ -184,9 +190,15 @@ class AutoSSOMFAHandler:
             current_url = self.page.url
             if '/finder' in current_url:
                 logger.info("Authentication successful - landed on finder page after redirects")
-                # Wait additional time for page to fully load and establish session
-                logger.info("Waiting for page to fully load and establish session...")
-                await asyncio.sleep(5)  # Give SpaceIQ time to set all cookies/session state
+                # Wait for page to fully load - use network idle instead of fixed sleep
+                logger.info("Waiting for network idle to ensure all cookies are set...")
+                try:
+                    await self.page.wait_for_load_state('networkidle', timeout=10000)
+                    logger.info("Network idle detected")
+                except:
+                    logger.warning("Network idle timeout - continuing anyway")
+                    await asyncio.sleep(5)  # Fallback to fixed wait
+
                 self.status = "success"
                 return await self._complete_authentication()
             else:
@@ -214,9 +226,15 @@ class AutoSSOMFAHandler:
             await self.page.wait_for_url('**/finder/**', timeout=timeout * 1000)
 
             logger.info("MFA completed successfully")
-            # Wait additional time for page to fully load and establish session
-            logger.info("Waiting for page to fully load and establish session...")
-            await asyncio.sleep(5)  # Give SpaceIQ time to set all cookies/session state
+            # Wait for page to fully load - use network idle instead of fixed sleep
+            logger.info("Waiting for network idle to ensure all cookies are set...")
+            try:
+                await self.page.wait_for_load_state('networkidle', timeout=10000)
+                logger.info("Network idle detected")
+            except:
+                logger.warning("Network idle timeout - continuing anyway")
+                await asyncio.sleep(5)  # Fallback to fixed wait
+
             self.status = "success"
             return await self._complete_authentication()
 
@@ -228,7 +246,7 @@ class AutoSSOMFAHandler:
             return {'status': 'error', 'error': self.error}
 
     async def _complete_authentication(self) -> Dict:
-        """Save session and return success"""
+        """Save session and validate it works before returning success"""
         try:
             # Save session to temp file
             import tempfile
@@ -251,6 +269,34 @@ class AutoSSOMFAHandler:
 
             # Clean up temp file
             os.unlink(temp_path)
+
+            # CRITICAL: Validate the session works in a new context before declaring success
+            logger.info("Validating saved session works...")
+            try:
+                test_context = await self.browser.new_context(
+                    storage_state=session_json,
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                )
+                test_page = await test_context.new_page()
+
+                # Try to navigate to finder page with saved session
+                await test_page.goto('https://main.spaceiq.com/finder/building/LC/floor/2',
+                                    timeout=15000, wait_until='domcontentloaded')
+                await asyncio.sleep(2)
+
+                # Check if we got redirected to login (session invalid)
+                if '/login' in test_page.url:
+                    await test_context.close()
+                    raise Exception("Saved session is invalid - redirected to login page immediately after saving!")
+
+                logger.info("✓ Session validation successful - session works!")
+                await test_context.close()
+
+            except Exception as validation_error:
+                logger.error(f"Session validation FAILED: {validation_error}")
+                await self.cleanup()
+                return {'status': 'error', 'error': f'Session validation failed: {str(validation_error)}'}
 
             # Cleanup browser
             await self.cleanup()
