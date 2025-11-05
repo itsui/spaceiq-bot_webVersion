@@ -656,16 +656,34 @@ class BotManager:
     def stop_bot(self, user_id: int) -> tuple[bool, str]:
         """Stop a bot for a specific user"""
         with self.lock:
-            if user_id not in self.running_bots:
-                return False, "Bot is not running"
-
-            worker = self.running_bots[user_id]
-
-            # Update database first (in case bot doesn't respond)
+            # Check database state first
             with self.app.app_context():
                 from src.utils.live_logger import get_live_logger
 
                 bot_instance = BotInstance.query.filter_by(user_id=user_id).first()
+
+                # If bot is not in memory but exists in database (stale state after restart)
+                if user_id not in self.running_bots:
+                    if bot_instance and bot_instance.status == 'running':
+                        # Clean up stale database state
+                        bot_instance.status = 'stopped'
+                        bot_instance.stopped_at = datetime.utcnow()
+                        bot_instance.add_log("Bot state cleaned up (was running before server restart)")
+
+                        # Clear live logs for next session
+                        live_logger = get_live_logger(user_id)
+                        live_logger.clear_logs()
+
+                        db.session.commit()
+                        logger.info(f"Cleaned up stale bot state for user {user_id}")
+                        return True, "Bot state cleaned up successfully"
+                    else:
+                        return False, "Bot is not running"
+
+                # Bot is actually running in memory
+                worker = self.running_bots[user_id]
+
+                # Update database first (in case bot doesn't respond)
                 if bot_instance:
                     bot_instance.status = 'stopped'
                     bot_instance.stopped_at = datetime.utcnow()
