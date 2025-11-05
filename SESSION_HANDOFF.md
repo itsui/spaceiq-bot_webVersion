@@ -3,6 +3,33 @@
 **Date**: November 5, 2025
 **Session Focus**: Implementing remote browser streaming for SSO authentication
 **Status**: Partially Working - Authentication detected but session not persisting
+**Conversation Tokens Used**: ~93K/200K
+
+---
+
+## 📌 IMPORTANT: Weekly Quota Management
+
+**If you're approaching your weekly Claude Code limit:**
+
+1. **Ask for quick handoff immediately**: "I'm approaching my weekly quota, please update SESSION_HANDOFF.md with current progress and commit to git"
+
+2. **LLM will**:
+   - Update this document with latest changes
+   - Add any new debugging findings
+   - Commit everything to git
+   - Provide quick summary of where to resume
+
+3. **Quick handoff command**:
+   ```
+   "Create a handoff document with:
+   - What you just tried
+   - What worked/didn't work
+   - Exact next steps
+   - Any new logs or findings
+   Then commit to git"
+   ```
+
+**For future LLMs starting a new session**: Check git log and read this document first before making changes.
 
 ---
 
