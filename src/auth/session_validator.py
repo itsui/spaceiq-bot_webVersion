@@ -56,9 +56,11 @@ async def validate_and_refresh_session(force_headless: bool = False, auth_file: 
         async with async_playwright() as p:
             # Quick test with existing session (headless for speed)
             browser = await p.chromium.launch(headless=True)
+            # IMPORTANT: Use EXACT same settings as session_manager.py to avoid fingerprinting mismatch
             context = await browser.new_context(
                 storage_state=session_data,  # Use decrypted dict, not file path
-                viewport={'width': 1920, 'height': 1080}
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             )
             page = await context.new_page()
 
