@@ -793,14 +793,19 @@ def api_stream_viewport():
                 setTimeout(() => indicator.remove(), 600);
             }
 
-            // Update screenshot with proper memory management
+            // Update screenshot with proper memory management and sequence tracking
             let isUpdating = false;
             let lastScreenshotHash = '';
+            let requestSequence = 0;
+            let lastAppliedSequence = 0;
 
             async function updateScreenshot() {
                 // Prevent overlapping requests
                 if (isUpdating) return;
                 isUpdating = true;
+
+                // Track this request's sequence number
+                const thisSequence = ++requestSequence;
 
                 try {
                     const response = await fetch('/api/auth/screenshot', {
@@ -811,11 +816,20 @@ def api_stream_viewport():
                         return;
                     }
                     const data = await response.json();
+
+                    // Only apply screenshots that are newer than what we've already shown
+                    // This prevents out-of-order screenshots from causing UI to jump backwards
+                    if (thisSequence <= lastAppliedSequence) {
+                        console.debug(`Ignoring out-of-order screenshot (seq ${thisSequence} <= ${lastAppliedSequence})`);
+                        return;
+                    }
+
                     if (data.success && data.screenshot) {
                         // Only update if screenshot changed to reduce DOM operations
                         if (data.screenshot !== lastScreenshotHash) {
                             viewport.src = 'data:image/jpeg;base64,' + data.screenshot;
                             lastScreenshotHash = data.screenshot;
+                            lastAppliedSequence = thisSequence;
                         }
                     } else {
                         console.warn('No screenshot data:', data);
