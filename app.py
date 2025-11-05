@@ -1140,16 +1140,40 @@ def api_save_stream_session():
                 pass
             return jsonify({'success': False, 'error': 'Failed to save session'}), 500
 
-        # Validate file exists and has content
-        if not temp_path.exists():
-            logger.error("Session file was not created")
-            return jsonify({'success': False, 'error': 'Session file was not created'}), 500
+        # CRITICAL: Add retry logic with delays to ensure file is fully written
+        # Playwright storage_state() may return before file is fully flushed to disk
+        import time
+        max_retries = 10
+        retry_delay = 0.1  # 100ms
+        file_size = 0
 
-        file_size = temp_path.stat().st_size
-        if file_size == 0:
-            logger.error("Session file is empty (0 bytes)")
-            temp_path.unlink()
-            return jsonify({'success': False, 'error': 'Session file is empty - authentication may have failed'}), 500
+        for retry in range(max_retries):
+            # Check if file exists
+            if not temp_path.exists():
+                if retry < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    logger.error(f"Session file was not created after {max_retries} retries")
+                    return jsonify({'success': False, 'error': 'Session file was not created'}), 500
+
+            # Check file size
+            file_size = temp_path.stat().st_size
+
+            if file_size > 0:
+                # File exists and has content - success!
+                logger.info(f"✓ Session file ready after {retry + 1} attempts: {file_size} bytes")
+                break
+
+            if retry < max_retries - 1:
+                # File exists but empty - wait and retry
+                logger.debug(f"Session file empty on attempt {retry + 1}, retrying...")
+                time.sleep(retry_delay)
+            else:
+                # Final attempt - file is still empty
+                logger.error(f"Session file is empty (0 bytes) after {max_retries} retries")
+                temp_path.unlink()
+                return jsonify({'success': False, 'error': 'Session file is empty - authentication may have failed'}), 500
 
         # Read and validate JSON
         try:

@@ -150,8 +150,9 @@ class BrowserStreamSession:
             # Save storage state (cookies, localStorage, etc.)
             await self.context.storage_state(path=output_path)
 
-            # CRITICAL: Wait a moment for file to be written
-            await asyncio.sleep(0.1)
+            # CRITICAL: Wait for file to be fully written to disk
+            # On Windows especially, file writes may be buffered
+            await asyncio.sleep(0.5)  # Increased from 0.1s to 0.5s
 
             # Validate that file was written and has content
             import os
