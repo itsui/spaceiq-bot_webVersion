@@ -160,20 +160,75 @@ class AutoSSOMFAHandler:
 
                 # Check if hit PIV card error page (certificate authentication)
                 if 'cert/error' in current_url and 'piv.card' in current_url:
-                    logger.info("PIV card error detected - looking for skip/continue button")
-                    # Try to find and click "Continue" or skip button
-                    skip_button = await self.page.query_selector('a[href*="skip"], button:has-text("Continue"), a:has-text("Continue"), button:has-text("Skip")')
+                    logger.info("PIV card error detected - analyzing page for proper continue method")
+
+                    # Take screenshot for debugging
+                    try:
+                        import tempfile
+                        import os
+                        screenshot_path = os.path.join(tempfile.gettempdir(), f'piv_error_user{self.user_id}.png')
+                        await self.page.screenshot(path=screenshot_path)
+                        logger.info(f"PIV error page screenshot saved to: {screenshot_path}")
+                    except Exception as e:
+                        logger.warning(f"Could not save screenshot: {e}")
+
+                    # Log page content for debugging
+                    page_content = await self.page.content()
+                    logger.info(f"PIV error page HTML length: {len(page_content)} chars")
+                    # Log first 1000 chars of HTML
+                    logger.info(f"PIV error page HTML preview: {page_content[:1000]}")
+
+                    # Look for any links or buttons that might continue the flow
+                    all_links = await self.page.query_selector_all('a')
+                    logger.info(f"Found {len(all_links)} links on PIV error page")
+
+                    # Try to find skip/continue button with more variations
+                    skip_selectors = [
+                        'a[href*="skip"]',
+                        'a[href*="continue"]',
+                        'button:has-text("Skip")',
+                        'button:has-text("Continue")',
+                        'a:has-text("Skip")',
+                        'a:has-text("Continue")',
+                        'a:has-text("Continue without")',
+                        '.button:has-text("Continue")',
+                        '[role="button"]:has-text("Continue")'
+                    ]
+
+                    skip_button = None
+                    for selector in skip_selectors:
+                        try:
+                            skip_button = await self.page.query_selector(selector)
+                            if skip_button:
+                                logger.info(f"Found skip element with selector: {selector}")
+                                break
+                        except:
+                            continue
+
                     if skip_button:
-                        logger.info("Found skip button - clicking to continue")
+                        logger.info("Clicking skip/continue button")
                         await skip_button.click()
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(3)
                         continue
                     else:
-                        # No skip button - try going directly to the app
-                        logger.info("No skip button found - navigating directly to SpaceIQ")
-                        await self.page.goto('https://main.spaceiq.com/finder/building/LC/floor/2',
-                                           wait_until='domcontentloaded', timeout=15000)
-                        await asyncio.sleep(2)
+                        # Check if page will auto-redirect by waiting
+                        logger.info("No skip button found - waiting 5s for auto-redirect")
+                        await asyncio.sleep(5)
+
+                        # If still on PIV error after waiting, log error and fail
+                        if 'cert/error' in self.page.url:
+                            logger.error("Still stuck on PIV error page - SSO flow cannot complete")
+                            logger.error(f"Current URL: {self.page.url}")
+                            # Log first few links to help debug
+                            for i, link in enumerate(all_links[:5]):
+                                try:
+                                    href = await link.get_attribute('href')
+                                    text = await link.text_content()
+                                    logger.info(f"  Link {i+1}: text='{text}' href='{href}'")
+                                except:
+                                    pass
+                            raise Exception("PIV card error - cannot find way to continue SSO flow")
+
                         continue
 
                 # Check for stable URL (no more redirects)
