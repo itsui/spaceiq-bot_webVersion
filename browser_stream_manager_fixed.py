@@ -87,7 +87,7 @@ class BrowserStreamSession:
             )
 
             self.context = await self.browser.new_context(
-                viewport={'width': 960, 'height': 600},  # 75% resolution for speed
+                viewport={'width': 640, 'height': 400},  # Low res for maximum speed
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             )
 
@@ -147,8 +147,8 @@ class BrowserStreamSession:
             if not self.page:
                 return None
 
-            # Very low quality for maximum speed - 20 is still readable
-            screenshot_bytes = await self.page.screenshot(type='jpeg', quality=20)
+            # Ultra low quality for maximum speed - 10 is minimum
+            screenshot_bytes = await self.page.screenshot(type='jpeg', quality=10)
             self.last_screenshot = base64.b64encode(screenshot_bytes).decode('utf-8')
             return self.last_screenshot
         except:
@@ -169,10 +169,7 @@ class BrowserStreamSession:
                 await self.page.keyboard.insert_text(text)
             else:
                 await self.page.keyboard.type(text, delay=0)  # No delay between keystrokes
-
-            # Small delay to let page render the typed text before next screenshot
-            # This prevents screenshots from capturing intermediate/partial render states
-            await asyncio.sleep(0.05)  # 50ms should be enough for DOM to update
+            # No delay - maximum speed, screenshots will catch up
 
     async def _press_async(self, key: str):
         """Press key (async)"""

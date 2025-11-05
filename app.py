@@ -843,7 +843,7 @@ def api_stream_viewport():
                 }
             }
 
-            setInterval(updateScreenshot, 500);  // Update every 500ms for smoother experience during typing
+            setInterval(updateScreenshot, 200);  // Update every 200ms for fast feedback
             updateScreenshot();
             setStatus('Stream active', 0);
 
@@ -867,11 +867,11 @@ def api_stream_viewport():
             function bufferKeystroke(char) {
                 typeBuffer += char;
                 clearTimeout(typeTimeout);
-                // Send buffered input after 100ms of no typing (or when buffer gets large)
-                if (typeBuffer.length > 20) {
+                // Send buffered input after 30ms of no typing (or when buffer gets large)
+                if (typeBuffer.length > 15) {
                     flushTypeBuffer();
                 } else {
-                    typeTimeout = setTimeout(flushTypeBuffer, 100);
+                    typeTimeout = setTimeout(flushTypeBuffer, 30);  // Faster feedback
                 }
             }
 
@@ -883,7 +883,7 @@ def api_stream_viewport():
                 showClickFeedback(e.clientX, e.clientY);
 
                 // Account for object-fit: contain scaling
-                const imgAspect = 960 / 600;  // Browser viewport aspect ratio (75% resolution)
+                const imgAspect = 640 / 400;  // Browser viewport aspect ratio (low res for speed)
                 const displayAspect = rect.width / rect.height;
 
                 let displayWidth = rect.width;
@@ -901,11 +901,11 @@ def api_stream_viewport():
                     offsetY = (rect.height - displayHeight) / 2;
                 }
 
-                const x = ((e.clientX - rect.left - offsetX) / displayWidth) * 960;
-                const y = ((e.clientY - rect.top - offsetY) / displayHeight) * 600;
+                const x = ((e.clientX - rect.left - offsetX) / displayWidth) * 640;
+                const y = ((e.clientY - rect.top - offsetY) / displayHeight) * 400;
 
                 // Only send click if within bounds
-                if (x >= 0 && x <= 960 && y >= 0 && y <= 600) {
+                if (x >= 0 && x <= 640 && y >= 0 && y <= 400) {
                     setStatus(`Click: (${Math.round(x)}, ${Math.round(y)})`, 800);
                     // Fire-and-forget - don't wait for response
                     fetch('/api/auth/click', {

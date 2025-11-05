@@ -52,7 +52,7 @@ class BrowserStreamSession:
 
             # Create new context
             self.context = await self.browser.new_context(
-                viewport={'width': 1280, 'height': 800},
+                viewport={'width': 640, 'height': 400},  # Low res for maximum speed
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             )
             logger.info("Context created")
@@ -102,7 +102,7 @@ class BrowserStreamSession:
 
             # Don't wait for load state - capture whatever is currently visible
             # This prevents blocking during heavy page loads (like Okta SSO)
-            screenshot_bytes = await self.page.screenshot(type='jpeg', quality=20)
+            screenshot_bytes = await self.page.screenshot(type='jpeg', quality=10)
             self.last_screenshot = base64.b64encode(screenshot_bytes).decode('utf-8')
             logger.debug(f"Screenshot captured: {len(self.last_screenshot)} bytes")
             return self.last_screenshot
@@ -124,9 +124,7 @@ class BrowserStreamSession:
         try:
             if self.page:
                 await self.page.keyboard.type(text)
-                # Small delay to let page render the typed text before next screenshot
-                # This prevents screenshots from capturing intermediate/partial render states
-                await asyncio.sleep(0.05)  # 50ms should be enough for DOM to update
+                # No delay - maximum speed, screenshots will catch up
         except Exception as e:
             logger.error(f"Type error: {e}")
 
