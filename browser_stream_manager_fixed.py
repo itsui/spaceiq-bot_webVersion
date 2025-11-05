@@ -239,7 +239,9 @@ class BrowserStreamSession:
         self.command_queue.put({'type': 'screenshot'})
         try:
             result = self.result_queue.get(timeout=1)  # Faster timeout for real-time feel
-            return result.get('data') if result.get('success') else None
+            data = result.get('data') if result.get('success') else None
+            # Always return cached screenshot if new one is None (page loading, etc.)
+            return data if data is not None else self.last_screenshot
         except:
             return self.last_screenshot
 

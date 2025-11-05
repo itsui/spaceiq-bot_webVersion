@@ -98,18 +98,17 @@ class BrowserStreamSession:
         try:
             if not self.page:
                 logger.warning("No page available for screenshot")
-                return None
+                return self.last_screenshot
 
-            # Wait a moment for page to be ready
-            await self.page.wait_for_load_state('domcontentloaded', timeout=5000)
-
-            screenshot_bytes = await self.page.screenshot(type='jpeg', quality=80)
+            # Don't wait for load state - capture whatever is currently visible
+            # This prevents blocking during heavy page loads (like Okta SSO)
+            screenshot_bytes = await self.page.screenshot(type='jpeg', quality=20)
             self.last_screenshot = base64.b64encode(screenshot_bytes).decode('utf-8')
             logger.debug(f"Screenshot captured: {len(self.last_screenshot)} bytes")
             return self.last_screenshot
 
         except Exception as e:
-            logger.error(f"Screenshot error: {e}", exc_info=True)
+            logger.debug(f"Screenshot error (returning cached): {e}")
             return self.last_screenshot
 
     async def click(self, x: int, y: int):
