@@ -215,11 +215,11 @@ class AutoSSOMFAHandler:
                         logger.info("No skip button found - waiting 5s for auto-redirect")
                         await asyncio.sleep(5)
 
-                        # If still on PIV error after waiting, log error and fail
+                        # If still on PIV error after waiting, try alternative approach
                         if 'cert/error' in self.page.url:
-                            logger.error("Still stuck on PIV error page - SSO flow cannot complete")
-                            logger.error(f"Current URL: {self.page.url}")
-                            # Log first few links to help debug
+                            logger.warning("Still on PIV error page - trying alternative approach")
+                            logger.info(f"Current URL: {self.page.url}")
+                            # Log available links
                             for i, link in enumerate(all_links[:5]):
                                 try:
                                     href = await link.get_attribute('href')
@@ -227,7 +227,27 @@ class AutoSSOMFAHandler:
                                     logger.info(f"  Link {i+1}: text='{text}' href='{href}'")
                                 except:
                                     pass
-                            raise Exception("PIV card error - cannot find way to continue SSO flow")
+
+                            # Alternative: Go back to SpaceIQ login and let IT complete the SAML handshake
+                            # We have Okta cookies in browser, so SpaceIQ should detect we're authenticated
+                            logger.info("Attempting to complete authentication via SpaceIQ login page")
+                            await self.page.goto('https://main.spaceiq.com/login?redirectTo=/finder/building/LC/floor/2',
+                                               wait_until='domcontentloaded', timeout=15000)
+                            await asyncio.sleep(3)
+
+                            # Check if SpaceIQ redirected us through SSO and landed on finder
+                            current_url = self.page.url
+                            if '/finder' in current_url:
+                                logger.info("✓ SpaceIQ detected Okta auth and completed SSO - landed on finder!")
+                                continue
+                            elif '/login' in current_url:
+                                # Still on login page - SSO handshake couldn't complete
+                                logger.error("SpaceIQ login page doesn't recognize Okta authentication")
+                                raise Exception("PIV card error - SSO handshake cannot complete")
+                            else:
+                                # Some other page - continue checking
+                                logger.info(f"After SpaceIQ login redirect, landed on: {current_url}")
+                                continue
 
                         continue
 
