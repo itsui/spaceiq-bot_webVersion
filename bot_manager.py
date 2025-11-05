@@ -597,6 +597,9 @@ class BotManager:
         self.running_bots: Dict[int, BotWorker] = {}
         self.lock = threading.Lock()
 
+        # Clean up stale bot states on startup
+        self.cleanup_stale_states_on_startup()
+
     def start_bot(self, user_id: int) -> tuple[bool, str]:
         """Start a bot for a specific user"""
         with self.lock:
@@ -742,3 +745,33 @@ class BotManager:
         with self.lock:
             for user_id in list(self.running_bots.keys()):
                 self.stop_bot(user_id)
+
+    def cleanup_stale_states_on_startup(self):
+        """Clean up any stale 'running' states from database on startup"""
+        try:
+            with self.app.app_context():
+                from src.utils.live_logger import get_live_logger
+
+                # Find all bot instances marked as running
+                stale_bots = BotInstance.query.filter_by(status='running').all()
+
+                if stale_bots:
+                    logger.info(f"Found {len(stale_bots)} stale bot state(s) from previous session - cleaning up")
+
+                    for bot_instance in stale_bots:
+                        bot_instance.status = 'stopped'
+                        bot_instance.stopped_at = datetime.utcnow()
+                        bot_instance.add_log("Bot state cleaned up on server startup")
+
+                        # Clear live logs for clean slate
+                        live_logger = get_live_logger(bot_instance.user_id)
+                        live_logger.clear_logs()
+
+                        logger.info(f"Cleaned up stale state for user {bot_instance.user_id}")
+
+                    db.session.commit()
+                else:
+                    logger.info("No stale bot states found on startup")
+
+        except Exception as e:
+            logger.error(f"Error cleaning up stale bot states on startup: {e}", exc_info=True)
