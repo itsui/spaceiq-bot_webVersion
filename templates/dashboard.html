@@ -26,8 +26,11 @@
                         </p>
                     </div>
                     <div>
-                        <button id="auth-btn" class="btn btn-primary" onclick="startSpaceIQAuth()" disabled>
-                            <i class="bi bi-key"></i> Authenticate with SpaceIQ
+                        <button id="auth-btn" class="btn btn-success" onclick="startAutoAuth()" disabled>
+                            <i class="bi bi-rocket-takeoff"></i> Fast Authentication
+                        </button>
+                        <button id="auth-btn-legacy" class="btn btn-outline-secondary btn-sm" onclick="startSpaceIQAuth()" disabled>
+                            <i class="bi bi-key"></i> Legacy (Stream)
                         </button>
                     </div>
                 </div>
@@ -271,6 +274,7 @@
                 `;
                 authBtn.disabled = false;
                 authBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Re-authenticate';
+                document.getElementById('auth-btn-legacy').disabled = false;
             } else if (data.status === 'waiting_for_login') {
                 authText.innerHTML = `
                     <span class="text-warning">
@@ -278,6 +282,7 @@
                     </span>
                 `;
                 authBtn.disabled = true;
+                document.getElementById('auth-btn-legacy').disabled = true;
             } else {
                 authText.innerHTML = `
                     <span class="auth-status-badge auth-status-invalid">
@@ -285,17 +290,24 @@
                     </span>
                 `;
                 authBtn.disabled = false;
-                authBtn.innerHTML = '<i class="bi bi-key"></i> Authenticate with SpaceIQ';
+                authBtn.innerHTML = '<i class="bi bi-rocket-takeoff"></i> Fast Authentication';
+                document.getElementById('auth-btn-legacy').disabled = false;
             }
         } catch (error) {
             console.error('Error checking auth status:', error);
         }
     }
 
-    // Start SpaceIQ authentication
+    // Start SpaceIQ authentication (legacy browser streaming)
     async function startSpaceIQAuth() {
         // Redirect to browser stream page for remote authentication
         window.location.href = '/auth/browser-stream';
+    }
+
+    // Start automated SSO authentication (NEW - recommended)
+    async function startAutoAuth() {
+        // Redirect to automated authentication page
+        window.location.href = '/auth/auto';
     }
 
     // Load configuration summary

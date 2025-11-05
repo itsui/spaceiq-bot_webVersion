@@ -665,6 +665,13 @@ def browser_stream_page():
     return render_template('browser_stream.html')
 
 
+@app.route('/auth/auto')
+@login_required
+def auto_auth_page():
+    """Display the automated SSO authentication page (NEW - recommended method)"""
+    return render_template('auto_auth.html')
+
+
 @app.route('/api/auth/start-stream', methods=['POST'])
 @login_required
 def api_start_browser_stream():
@@ -1230,6 +1237,146 @@ def api_save_stream_session():
     except Exception as e:
         logger.error(f"Error saving stream session: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================================================
+# AUTOMATED SSO AUTHENTICATION (NO BROWSER STREAMING)
+# ============================================================================
+
+# Store active authentication sessions
+_active_auth_sessions = {}
+
+@app.route('/api/auth/auto-start', methods=['POST'])
+@login_required
+async def api_auto_auth_start():
+    """Start automated SSO authentication"""
+    try:
+        data = request.json
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+
+        if not email or not password:
+            return jsonify({'success': False, 'error': 'Email and password required'}), 400
+
+        # Clean up any existing session for this user
+        if current_user.id in _active_auth_sessions:
+            old_handler = _active_auth_sessions[current_user.id]
+            await old_handler.cleanup()
+
+        # Create new authentication handler
+        from auto_sso_auth import AutoSSOMFAHandler
+        handler = AutoSSOMFAHandler(current_user.id)
+        _active_auth_sessions[current_user.id] = handler
+
+        # Start authentication in background
+        result = await handler.start_authentication(email, password)
+
+        if result['status'] == 'success':
+            # Authentication completed without MFA - save session
+            session_data = result['session_data']
+            from src.utils.auth_encryption import encrypt_data
+            encrypted_data = encrypt_data(json.dumps(session_data))
+
+            spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+            if not spaceiq_session:
+                spaceiq_session = SpaceIQSession(user_id=current_user.id)
+                db.session.add(spaceiq_session)
+
+            spaceiq_session.session_data = encrypted_data
+            spaceiq_session.last_validated = datetime.utcnow()
+            spaceiq_session.is_valid = True
+            db.session.commit()
+
+            # Clean up
+            del _active_auth_sessions[current_user.id]
+
+            logger.info(f"✓ Auto-authentication completed for user {current_user.id} (no MFA)")
+            return jsonify({
+                'success': True,
+                'status': 'success',
+                'message': 'Authentication successful'
+            })
+
+        elif result['status'] == 'mfa_required':
+            # MFA required - return number for user to tap
+            logger.info(f"MFA required for user {current_user.id}, number: {result['mfa_number']}")
+            return jsonify({
+                'success': True,
+                'status': 'mfa_required',
+                'mfa_number': result['mfa_number'],
+                'message': result['message']
+            })
+
+        else:
+            # Error
+            if current_user.id in _active_auth_sessions:
+                del _active_auth_sessions[current_user.id]
+            return jsonify({
+                'success': False,
+                'status': 'error',
+                'error': result.get('error', 'Authentication failed')
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Auto-auth start error: {e}", exc_info=True)
+        if current_user.id in _active_auth_sessions:
+            del _active_auth_sessions[current_user.id]
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/auth/auto-status')
+@login_required
+async def api_auto_auth_status():
+    """Poll authentication status (used when waiting for MFA)"""
+    try:
+        handler = _active_auth_sessions.get(current_user.id)
+        if not handler:
+            return jsonify({'status': 'no_session', 'error': 'No active authentication session'})
+
+        # Check if MFA was completed
+        if handler.status == 'waiting_for_mfa_approval':
+            # Try to wait for completion (with short timeout for polling)
+            try:
+                result = await asyncio.wait_for(
+                    handler.wait_for_mfa_completion(timeout=5),
+                    timeout=6
+                )
+
+                if result['status'] == 'success':
+                    # Save session
+                    session_data = result['session_data']
+                    from src.utils.auth_encryption import encrypt_data
+                    encrypted_data = encrypt_data(json.dumps(session_data))
+
+                    spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+                    if not spaceiq_session:
+                        spaceiq_session = SpaceIQSession(user_id=current_user.id)
+                        db.session.add(spaceiq_session)
+
+                    spaceiq_session.session_data = encrypted_data
+                    spaceiq_session.last_validated = datetime.utcnow()
+                    spaceiq_session.is_valid = True
+                    db.session.commit()
+
+                    # Clean up
+                    del _active_auth_sessions[current_user.id]
+
+                    logger.info(f"✓ Auto-authentication completed for user {current_user.id} (with MFA)")
+                    return jsonify({
+                        'status': 'success',
+                        'message': 'Authentication successful'
+                    })
+
+            except asyncio.TimeoutError:
+                # Still waiting - return current status
+                return jsonify(handler.get_status())
+
+        # Return current status
+        return jsonify(handler.get_status())
+
+    except Exception as e:
+        logger.error(f"Auto-auth status error: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
 # ============================================================================

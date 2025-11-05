@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Fast SSO Authentication{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">🚀 Fast SSO Authentication</h4>
+                    <small>Automated login - no browser streaming!</small>
+                </div>
+                <div class="card-body">
+                    <!-- Step 1: Credential Input -->
+                    <div id="credentialsForm">
+                        <p class="text-muted">Enter your SpaceIQ credentials. We'll handle the SSO login automatically.</p>
+
+                        <div class="alert alert-info">
+                            <strong>Privacy:</strong> Credentials are only used for authentication and not stored.
+                        </div>
+
+                        <form id="authForm">
+                            <div class="form-group mb-3">
+                                <label for="email">Company Email</label>
+                                <input type="email" class="form-control" id="email"
+                                       placeholder="your.email@company.com" required>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="password">Password</label>
+                                <input type="password" class="form-control" id="password"
+                                       placeholder="Your password" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-block" id="startBtn">
+                                <i class="fas fa-rocket"></i> Start Authentication
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Step 2: Processing -->
+                    <div id="processingDiv" style="display: none;" class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="sr-only">Processing...</span>
+                        </div>
+                        <p class="text-muted" id="statusText">Starting authentication...</p>
+                    </div>
+
+                    <!-- Step 3: MFA Number Display -->
+                    <div id="mfaDiv" style="display: none;" class="text-center">
+                        <h3 class="mb-4">📱 MFA Required</h3>
+                        <p class="lead">Tap this number in your Okta Verify app:</p>
+
+                        <div class="display-1 text-primary font-weight-bold my-4"
+                             id="mfaNumber"
+                             style="font-size: 120px; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);">
+                            -
+                        </div>
+
+                        <div class="spinner-border text-success mb-2" role="status">
+                            <span class="sr-only">Waiting...</span>
+                        </div>
+                        <p class="text-muted">Waiting for approval...</p>
+                    </div>
+
+                    <!-- Step 4: Success -->
+                    <div id="successDiv" style="display: none;" class="text-center">
+                        <div class="text-success mb-3">
+                            <i class="fas fa-check-circle" style="font-size: 64px;"></i>
+                        </div>
+                        <h4 class="text-success">Authentication Successful!</h4>
+                        <p class="text-muted">Redirecting to dashboard...</p>
+                    </div>
+
+                    <!-- Error Display -->
+                    <div id="errorDiv" style="display: none;">
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> <span id="errorText"></span>
+                        </div>
+                        <button class="btn btn-secondary" onclick="location.reload()">
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-3">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-link">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let pollInterval = null;
+
+document.getElementById('authForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    // Show processing
+    document.getElementById('credentialsForm').style.display = 'none';
+    document.getElementById('processingDiv').style.display = 'block';
+
+    try {
+        const response = await fetch('/api/auth/auto-start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            showError(data.error || 'Authentication failed');
+            return;
+        }
+
+        if (data.status === 'mfa_required') {
+            // Show MFA number
+            document.getElementById('processingDiv').style.display = 'none';
+            document.getElementById('mfaDiv').style.display = 'block';
+            document.getElementById('mfaNumber').textContent = data.mfa_number;
+
+            // Start polling for MFA completion
+            pollInterval = setInterval(checkMFAStatus, 2000);
+        } else if (data.status === 'success') {
+            // Success without MFA
+            showSuccess();
+        } else {
+            showError('Unexpected response: ' + data.status);
+        }
+
+    } catch (error) {
+        showError(error.message);
+    }
+});
+
+async function checkMFAStatus() {
+    try {
+        const response = await fetch('/api/auth/auto-status');
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            // MFA completed
+            clearInterval(pollInterval);
+            showSuccess();
+        } else if (data.status === 'error') {
+            clearInterval(pollInterval);
+            showError(data.error || 'MFA verification failed');
+        }
+        // Otherwise keep polling
+    } catch (error) {
+        console.error('Poll error:', error);
+    }
+}
+
+function showSuccess() {
+    document.getElementById('processingDiv').style.display = 'none';
+    document.getElementById('mfaDiv').style.display = 'none';
+    document.getElementById('successDiv').style.display = 'block';
+
+    // Redirect to dashboard after 2 seconds
+    setTimeout(() => {
+        window.location.href = '{{ url_for('dashboard') }}';
+    }, 2000);
+}
+
+function showError(message) {
+    if (pollInterval) clearInterval(pollInterval);
+
+    document.getElementById('credentialsForm').style.display = 'none';
+    document.getElementById('processingDiv').style.display = 'none';
+    document.getElementById('mfaDiv').style.display = 'none';
+    document.getElementById('errorDiv').style.display = 'block';
+    document.getElementById('errorText').textContent = message;
+}
+</script>
+
+{% endblock %}
