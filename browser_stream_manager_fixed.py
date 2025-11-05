@@ -172,11 +172,39 @@ class BrowserStreamSession:
     async def _save_session_async(self, path: str) -> bool:
         """Save session (async)"""
         try:
-            if not self.context or not self.authenticated:
+            if not self.context:
+                logger.error("Cannot save session: browser context is None")
                 return False
+
+            if not self.authenticated:
+                logger.warning("Attempting to save session before authentication detected")
+                # Allow saving even if not authenticated (user might have logged in but URL didn't match)
+
+            # Save storage state
             await self.context.storage_state(path=path)
+
+            # Validate that file was written and has content
+            from pathlib import Path
+            import os
+            session_path = Path(path)
+            if not session_path.exists():
+                logger.error(f"Session file was not created at {path}")
+                return False
+
+            file_size = os.path.getsize(path)
+            if file_size == 0:
+                logger.error(f"Session file is empty (0 bytes) at {path}")
+                return False
+
+            if file_size < 10:  # Minimum valid JSON would be at least 10 bytes like {"cookies":[]}
+                logger.error(f"Session file is too small ({file_size} bytes), likely invalid")
+                return False
+
+            logger.info(f"✓ Session saved successfully ({file_size} bytes) for user {self.user_id}")
             return True
-        except:
+
+        except Exception as e:
+            logger.error(f"Failed to save session for user {self.user_id}: {e}", exc_info=True)
             return False
 
     async def _on_navigation(self, frame):

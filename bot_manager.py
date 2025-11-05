@@ -80,8 +80,42 @@ class BotWorker(threading.Thread):
             except json.JSONDecodeError:
                 # Session data is encrypted, decrypt it first
                 from src.utils.auth_encryption import decrypt_data
-                decrypted = decrypt_data(spaceiq_session.session_data)
-                session_data = json.loads(decrypted)
+                logger.info(f"Session data is encrypted, decrypting for user {self.user_id}...")
+
+                try:
+                    decrypted = decrypt_data(spaceiq_session.session_data)
+
+                    # Validate decrypted data is not empty
+                    if not decrypted or len(decrypted.strip()) == 0:
+                        raise Exception(
+                            "Decrypted session data is empty. The stored session may be corrupted. "
+                            "Please re-authenticate through the browser stream interface."
+                        )
+
+                    logger.info(f"Decrypted session data length: {len(decrypted)} bytes")
+
+                    # Parse JSON
+                    session_data = json.loads(decrypted)
+
+                    # Validate session has required fields
+                    if not isinstance(session_data, dict):
+                        raise Exception("Session data is not a valid JSON object")
+
+                    if 'cookies' not in session_data and 'origins' not in session_data:
+                        raise Exception(
+                            "Session data is missing required fields (cookies/origins). "
+                            "Please re-authenticate."
+                        )
+
+                    logger.info(f"Successfully loaded and validated session for user {self.user_id}")
+
+                except Exception as decrypt_error:
+                    logger.error(f"Failed to decrypt session data for user {self.user_id}: {decrypt_error}")
+                    raise Exception(
+                        f"Session decryption failed: {decrypt_error}. "
+                        "Your session may be corrupted or from a different machine. "
+                        "Please re-authenticate through the browser stream interface."
+                    )
 
             # Prepare configuration
             config = bot_config.to_dict()

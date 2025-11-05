@@ -1026,7 +1026,27 @@ def api_stop_browser_stream():
             os.close(temp_fd)  # Close fd, we'll use the path
             temp_path = Path(temp_path_str)
 
-            session.save_session(str(temp_path))
+            success = session.save_session(str(temp_path))
+
+            if not success:
+                temp_path.unlink()
+                logger.warning("Failed to save session on stop - session not saved to database")
+                stream_manager.stop_session(current_user.id)
+                return jsonify({
+                    'success': True,
+                    'message': 'Stream stopped but session was not saved (authentication may have failed)'
+                })
+
+            # Validate file has content
+            file_size = temp_path.stat().st_size
+            if file_size == 0:
+                logger.error("Session file is empty on stop")
+                temp_path.unlink()
+                stream_manager.stop_session(current_user.id)
+                return jsonify({
+                    'success': True,
+                    'message': 'Stream stopped but session is empty - please authenticate first'
+                })
 
             # Read and encrypt
             with open(temp_path, 'r') as f:
@@ -1088,12 +1108,37 @@ def api_save_stream_session():
         success = session.save_session(str(temp_path))
 
         if not success:
+            # Clean up temp file
+            try:
+                temp_path.unlink()
+            except:
+                pass
             return jsonify({'success': False, 'error': 'Failed to save session'}), 500
 
-        # Read and encrypt
-        with open(temp_path, 'r') as f:
-            session_data = f.read()
+        # Validate file exists and has content
+        if not temp_path.exists():
+            logger.error("Session file was not created")
+            return jsonify({'success': False, 'error': 'Session file was not created'}), 500
 
+        file_size = temp_path.stat().st_size
+        if file_size == 0:
+            logger.error("Session file is empty (0 bytes)")
+            temp_path.unlink()
+            return jsonify({'success': False, 'error': 'Session file is empty - authentication may have failed'}), 500
+
+        # Read and validate JSON
+        try:
+            with open(temp_path, 'r') as f:
+                session_data = f.read()
+
+            # Validate it's valid JSON
+            json.loads(session_data)
+        except json.JSONDecodeError as e:
+            logger.error(f"Session file contains invalid JSON: {e}")
+            temp_path.unlink()
+            return jsonify({'success': False, 'error': f'Invalid session data: {e}'}), 500
+
+        # Encrypt the validated session data
         encrypted_data = encrypt_data(session_data)
 
         # Save to database

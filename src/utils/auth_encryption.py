@@ -341,6 +341,10 @@ def encrypt_data(data: str) -> str:
         Base64-encoded encrypted data
     """
     try:
+        # Validate input
+        if not data or len(data.strip()) == 0:
+            raise ValueError("Cannot encrypt empty data - session data must not be empty")
+
         # Use machine ID as username for generic encryption
         machine_id = get_machine_id()
         key = derive_encryption_key(machine_id)
@@ -366,14 +370,28 @@ def decrypt_data(encrypted_data: str) -> str:
         Decrypted string data
     """
     try:
+        # Validate input
+        if not encrypted_data or len(encrypted_data.strip()) == 0:
+            raise ValueError("Encrypted data is empty or None")
+
         # Use machine ID as username for generic decryption
         machine_id = get_machine_id()
         key = derive_encryption_key(machine_id)
         cipher = Fernet(key)
 
+        # Decrypt
         decrypted = cipher.decrypt(encrypted_data.encode('utf-8'))
-        return decrypted.decode('utf-8')
+        decrypted_str = decrypted.decode('utf-8')
 
+        # Validate output
+        if not decrypted_str or len(decrypted_str.strip()) == 0:
+            raise ValueError("Decryption resulted in empty data - original data may have been empty or corrupted")
+
+        return decrypted_str
+
+    except InvalidToken as e:
+        print(f"[ERROR] Invalid encryption token - data may be corrupted or from different machine")
+        raise ValueError(f"Failed to decrypt session data - it may be corrupted or from a different machine: {e}")
     except Exception as e:
         print(f"[ERROR] Failed to decrypt data: {e}")
         raise
