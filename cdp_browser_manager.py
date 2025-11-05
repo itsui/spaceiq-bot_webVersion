@@ -194,7 +194,7 @@ class CDPBrowserSession:
     async def _type_async(self, text: str):
         """Type text"""
         if self.page:
-            await self.page.keyboard.type(text, delay=50)  # 50ms delay between keys
+            await self.page.keyboard.type(text, delay=15)  # 15ms delay - much faster typing
 
     async def _press_async(self, key: str):
         """Press key"""
