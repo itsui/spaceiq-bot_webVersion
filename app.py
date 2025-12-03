@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from models import db, User, BotConfig, SpaceIQSession, BotInstance, BookingHistory
 from bot_manager import BotManager
 from spaceiq_auth_capture import AuthCaptureManager
+from src.utils.session_persistence import save_session_to_database
 
 # Import migration manager
 from migrate_database import run_all_migrations
@@ -50,19 +51,21 @@ app.wsgi_app = ProxyFix(
 # Run this to generate a key: python -c "import secrets; print(secrets.token_hex(32))"
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY or SECRET_KEY == 'change-this-to-a-random-secret-key':
-    if os.getenv('FLASK_ENV') == 'production':
-        raise ValueError(
-            "You must set a strong SECRET_KEY in production! "
-            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
-        )
-    else:
-        # Development fallback
-        SECRET_KEY = 'dev-key-for-testing-only-' + secrets.token_hex(16)
-        logger.warning("⚠️  Using auto-generated SECRET_KEY. Set SECRET_KEY in .env for production!")
+    raise ValueError(
+        "You must set a strong SECRET_KEY in .env file!\n"
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"\n"
+        "Then add to .env file: SECRET_KEY=<generated_key>"
+    )
 
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///spaceiq_multiuser.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Session security configuration
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)  # Sessions expire after 12 hours
+app.config['SESSION_COOKIE_SECURE'] = True  # Only send over HTTPS (Cloudflare provides this)
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 
 # Security headers
 @app.after_request
@@ -141,11 +144,40 @@ def setup_logging():
 setup_logging()
 logger = logging.getLogger(__name__)
 
+# Suppress flask-limiter INFO spam (only show warnings and errors)
+logging.getLogger('flask-limiter').setLevel(logging.WARNING)
+
 
 @login_manager.user_loader
 def load_user(user_id):
     """Load user by ID for Flask-Login"""
     return User.query.get(int(user_id))
+
+
+def is_safe_url(target):
+    """
+    Validate that a redirect URL is safe (same host).
+
+    Prevents open redirect vulnerabilities by ensuring the target
+    URL is relative or points to the same host as the application.
+
+    Args:
+        target: URL to validate
+
+    Returns:
+        True if URL is safe to redirect to, False otherwise
+    """
+    from urllib.parse import urlparse, urljoin
+
+    # Get the reference URL (our app)
+    ref_url = urlparse(request.host_url)
+
+    # Parse the target URL (make it absolute if relative)
+    test_url = urlparse(urljoin(request.host_url, target))
+
+    # Check: scheme must be http/https AND netloc must match (same host)
+    return (test_url.scheme in ('http', 'https') and
+            ref_url.netloc == test_url.netloc)
 
 
 # ============================================================================
@@ -193,17 +225,7 @@ def register():
             flash('Email already registered', 'danger')
             return render_template('register.html')
 
-        # Validate against Supabase whitelist (if configured)
-        from src.utils.supabase_validator import validate_user_and_log
-        is_valid, error_msg = validate_user_and_log(username)
-        if not is_valid:
-            flash(f'Access denied: {error_msg}. Contact administrator to add "{username}" to the whitelist.', 'danger')
-            logger.warning(f"Registration blocked for non-whitelisted user: {username}")
-            return render_template('register.html')
-
-        logger.info(f"User {username} validated against Supabase whitelist")
-
-        # Create user
+        # Create user (open registration - Supabase validation removed)
         user = User(username=username, email=email)
         user.set_password(password)
 
@@ -265,8 +287,9 @@ def login():
             login_user(user, remember=True)
             logger.info(f"User logged in: {username}")
 
+            # Validate redirect URL to prevent open redirect attacks
             next_page = request.args.get('next')
-            if next_page:
+            if next_page and is_safe_url(next_page):
                 return redirect(next_page)
             return redirect(url_for('dashboard'))
         else:
@@ -316,6 +339,7 @@ def history_page():
 
 @app.route('/api/bot/start', methods=['POST'])
 @login_required
+@limiter.exempt
 def api_start_bot():
     """Start bot for current user"""
     try:
@@ -334,6 +358,7 @@ def api_start_bot():
 
 @app.route('/api/bot/stop', methods=['POST'])
 @login_required
+@limiter.exempt
 def api_stop_bot():
     """Stop bot for current user"""
     try:
@@ -390,6 +415,7 @@ def api_bot_status():
 
 @app.route('/api/config')
 @login_required
+@limiter.exempt
 def api_get_config():
     """Get bot configuration for current user"""
     try:
@@ -403,8 +429,32 @@ def api_get_config():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/uk-holidays')
+@login_required
+@limiter.exempt
+def api_get_uk_holidays():
+    """Get UK bank holidays for the next 29 days"""
+    try:
+        from datetime import date, timedelta
+        from src.utils.date_calculator import get_uk_bank_holidays
+
+        today = date.today()
+        end_date = today + timedelta(days=29)
+
+        holidays = get_uk_bank_holidays(today, end_date)
+
+        return jsonify({
+            'success': True,
+            'holidays': list(holidays)
+        })
+    except Exception as e:
+        logger.error(f"Error getting UK holidays: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/config', methods=['POST'])
 @login_required
+@limiter.exempt
 def api_update_config():
     """Update bot configuration for current user"""
     try:
@@ -431,6 +481,11 @@ def api_update_config():
             needs_date_recalc = True
         if 'blacklist_dates' in data:
             bot_config.set_blacklist_dates(data['blacklist_dates'])
+            needs_date_recalc = True
+        if 'locked_desks' in data:
+            bot_config.set_locked_desks(data['locked_desks'])
+        if 'auto_ignore_uk_holidays' in data:
+            bot_config.auto_ignore_uk_holidays = data['auto_ignore_uk_holidays']
             needs_date_recalc = True
         if 'wait_times' in data:
             bot_config.set_wait_times(data['wait_times'])
@@ -493,11 +548,67 @@ def api_start_spaceiq_auth():
 
 @app.route('/api/spaceiq/auth/status')
 @login_required
+@limiter.exempt
 def api_spaceiq_auth_status():
     """Get SpaceIQ authentication status for current user"""
     try:
-        status = auth_capture_manager.get_capture_status(current_user.id)
-        return jsonify(status)
+        # Check if user has a valid persistent profile session
+        from pathlib import Path
+        profile_dir = Path("playwright") / ".auth" / "profiles" / f"user_{current_user.id}"
+
+        # Check if persistent profile exists (has cookies)
+        has_profile = profile_dir.exists() and any(profile_dir.iterdir())
+
+        # Check database session
+        spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+        has_db_session = spaceiq_session and spaceiq_session.is_valid
+
+        # Verify that session data can actually be decrypted if it exists
+        if has_db_session and spaceiq_session.session_data:
+            try:
+                from src.utils.auth_encryption import decrypt_data
+                # Try to decrypt the session data to verify it's usable
+                decrypted = decrypt_data(spaceiq_session.session_data)
+                json.loads(decrypted)  # Verify it's valid JSON
+            except Exception as e:
+                # Decryption failed - mark session as invalid and clean up
+                logger.warning(f"Session decryption failed for user {current_user.id}: {e}")
+                spaceiq_session.is_valid = False
+                db.session.commit()
+                has_db_session = False
+
+                # Also delete the persistent profile directory since session is corrupted
+                if has_profile and profile_dir.exists():
+                    try:
+                        import shutil
+                        shutil.rmtree(profile_dir)
+                        logger.info(f"Deleted corrupted profile directory for user {current_user.id}")
+                        has_profile = False
+                    except Exception as cleanup_error:
+                        logger.error(f"Failed to delete profile directory: {cleanup_error}")
+
+        if has_profile and has_db_session:
+            return jsonify({
+                'is_authenticated': True,
+                'authenticated': True,
+                'status': 'valid',
+                'authenticated_as': spaceiq_session.authenticated_as or current_user.username,
+                'method': 'persistent_profile'
+            })
+        elif has_profile or has_db_session:
+            return jsonify({
+                'is_authenticated': True,
+                'authenticated': True,
+                'status': 'partial',
+                'authenticated_as': spaceiq_session.authenticated_as if spaceiq_session else current_user.username,
+                'message': 'Session may need refresh'
+            })
+        else:
+            return jsonify({
+                'is_authenticated': False,
+                'authenticated': False,
+                'status': 'none'
+            })
     except Exception as e:
         logger.error(f"Error getting SpaceIQ auth status for user {current_user.id}: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
@@ -509,6 +620,7 @@ def api_spaceiq_auth_status():
 
 @app.route('/api/history')
 @login_required
+@limiter.exempt
 def api_get_history():
     """Get booking history for current user"""
     try:
@@ -622,6 +734,7 @@ def api_remove_duplicate_history():
 
 @app.route('/api/live-logs')
 @login_required
+@limiter.exempt
 def api_get_live_logs():
     """Get live logs for current user (UI logs only)"""
     try:
@@ -656,7 +769,7 @@ def api_get_live_logs():
 # BROWSER STREAMING FOR REMOTE AUTHENTICATION
 # ============================================================================
 
-from browser_stream_manager_fixed import stream_manager
+from browser_stream_manager import stream_manager
 
 @app.route('/auth/browser-stream')
 @login_required
@@ -1096,22 +1209,13 @@ def api_stop_browser_stream():
                     'message': 'Stream stopped but session is empty - please authenticate first'
                 })
 
-            # Read and encrypt
+            # Read and save to database
             with open(temp_path, 'r') as f:
-                session_data = f.read()
+                session_data_json = f.read()
 
-            encrypted_data = encrypt_data(session_data)
-
-            # Save to database
-            spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
-            if not spaceiq_session:
-                spaceiq_session = SpaceIQSession(user_id=current_user.id)
-                db.session.add(spaceiq_session)
-
-            spaceiq_session.session_data = encrypted_data
-            spaceiq_session.last_validated = datetime.utcnow()
-            spaceiq_session.is_valid = True
-            db.session.commit()
+            # Parse JSON and save using shared utility
+            session_data = json.loads(session_data_json)
+            save_session_to_database(current_user.id, session_data)
 
             # Cleanup
             temp_path.unlink()
@@ -1201,28 +1305,17 @@ def api_save_stream_session():
         # Read and validate JSON
         try:
             with open(temp_path, 'r') as f:
-                session_data = f.read()
+                session_data_json = f.read()
 
-            # Validate it's valid JSON
-            json.loads(session_data)
+            # Validate and parse JSON
+            session_data = json.loads(session_data_json)
         except json.JSONDecodeError as e:
             logger.error(f"Session file contains invalid JSON: {e}")
             temp_path.unlink()
             return jsonify({'success': False, 'error': f'Invalid session data: {e}'}), 500
 
-        # Encrypt the validated session data
-        encrypted_data = encrypt_data(session_data)
-
-        # Save to database
-        spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
-        if not spaceiq_session:
-            spaceiq_session = SpaceIQSession(user_id=current_user.id)
-            db.session.add(spaceiq_session)
-
-        spaceiq_session.session_data = encrypted_data
-        spaceiq_session.last_validated = datetime.utcnow()
-        spaceiq_session.is_valid = True
-        db.session.commit()
+        # Save to database using shared utility
+        save_session_to_database(current_user.id, session_data)
 
         # Cleanup
         temp_path.unlink()
@@ -1267,33 +1360,33 @@ def api_auto_auth_start():
             # Clean up any existing session for this user
             if current_user.id in _active_auth_sessions:
                 old_handler = _active_auth_sessions[current_user.id]
-                loop.run_until_complete(old_handler.cleanup())
+                try:
+                    if hasattr(old_handler, 'cleanup'):
+                        loop.run_until_complete(old_handler.cleanup())
+                except:
+                    pass  # Ignore cleanup errors
 
-            # Create new authentication handler
-            from auto_sso_auth import AutoSSOMFAHandler
-            handler = AutoSSOMFAHandler(current_user.id)
+            # Create new authentication handler with PERSISTENT PROFILE
+            from src.auth.persistent_browser_manager import AutoAuthWithPersistentProfile
+            handler = AutoAuthWithPersistentProfile(current_user.id)
             _active_auth_sessions[current_user.id] = handler
 
-            # Start authentication
-            result = loop.run_until_complete(handler.start_authentication(email, password))
-        finally:
+            # Start authentication (uses headless=False for cookie persistence!)
+            # Check if user has debug mode enabled
+            debug_mode = current_user.debug_mode if hasattr(current_user, 'debug_mode') else False
+            result = loop.run_until_complete(handler.authenticate(email, password, debug_mode=debug_mode))
+        except Exception as e:
             loop.close()
+            raise
 
         if result['status'] == 'success':
+            # Clean up loop since we're done
+            loop.close()
             # Authentication completed without MFA - save session
             session_data = result['session_data']
-            from src.utils.auth_encryption import encrypt_data
-            encrypted_data = encrypt_data(json.dumps(session_data))
 
-            spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
-            if not spaceiq_session:
-                spaceiq_session = SpaceIQSession(user_id=current_user.id)
-                db.session.add(spaceiq_session)
-
-            spaceiq_session.session_data = encrypted_data
-            spaceiq_session.last_validated = datetime.utcnow()
-            spaceiq_session.is_valid = True
-            db.session.commit()
+            # Save to database using shared utility
+            save_session_to_database(current_user.id, session_data)
 
             # Clean up
             del _active_auth_sessions[current_user.id]
@@ -1306,8 +1399,15 @@ def api_auto_auth_start():
             })
 
         elif result['status'] == 'mfa_required':
-            # MFA required - return number for user to tap
+            # MFA required - DON'T close loop yet, background thread will use it
             logger.info(f"MFA required for user {current_user.id}, number: {result['mfa_number']}")
+
+            # Store the loop in the handler so background thread can use it
+            handler._event_loop = loop
+
+            # Start background thread to wait for MFA completion
+            handler.start_mfa_wait_background()
+
             return jsonify({
                 'success': True,
                 'status': 'mfa_required',
@@ -1316,13 +1416,27 @@ def api_auto_auth_start():
             })
 
         else:
-            # Error
+            # Error - close loop
+            loop.close()
             if current_user.id in _active_auth_sessions:
                 del _active_auth_sessions[current_user.id]
+
+            # Check if it's a wrong password error (retriable)
+            if result.get('error') == 'wrong_password':
+                return jsonify({
+                    'success': False,
+                    'status': 'error',
+                    'error': 'wrong_password',
+                    'message': result.get('message', 'Incorrect password. Please try again.'),
+                    'retry': True
+                }), 401  # 401 Unauthorized for wrong password
+
+            # Other errors
             return jsonify({
                 'success': False,
                 'status': 'error',
-                'error': result.get('error', 'Authentication failed')
+                'error': result.get('error', 'Authentication failed'),
+                'message': result.get('message', 'Authentication failed')
             }), 500
 
     except Exception as e:
@@ -1341,58 +1455,182 @@ def api_auto_auth_status():
         if not handler:
             return jsonify({'status': 'no_session', 'error': 'No active authentication session'})
 
-        # Check if MFA was completed
-        if handler.status == 'waiting_for_mfa_approval':
-            # Run async function synchronously
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Get current status from handler (background thread updates this)
+        status = handler.get_status()
 
-            try:
-                # Try to wait for completion (with short timeout for polling)
-                try:
-                    result = loop.run_until_complete(asyncio.wait_for(
-                        handler.wait_for_mfa_completion(timeout=5),
-                        timeout=6
-                    ))
+        # If MFA completed successfully, save session and clean up
+        if status['status'] == 'success' and status.get('session_data'):
+            session_data = status['session_data']
 
-                    if result['status'] == 'success':
-                        # Save session
-                        session_data = result['session_data']
-                        from src.utils.auth_encryption import encrypt_data
-                        encrypted_data = encrypt_data(json.dumps(session_data))
+            # Save to database using shared utility
+            save_session_to_database(current_user.id, session_data)
 
-                        spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
-                        if not spaceiq_session:
-                            spaceiq_session = SpaceIQSession(user_id=current_user.id)
-                            db.session.add(spaceiq_session)
+            # Clean up
+            del _active_auth_sessions[current_user.id]
 
-                        spaceiq_session.session_data = encrypted_data
-                        spaceiq_session.last_validated = datetime.utcnow()
-                        spaceiq_session.is_valid = True
-                        db.session.commit()
+            logger.info(f"✓ Auto-authentication completed for user {current_user.id} (with MFA)")
+            return jsonify({
+                'status': 'success',
+                'message': 'Authentication successful'
+            })
 
-                        # Clean up
-                        del _active_auth_sessions[current_user.id]
-
-                        logger.info(f"✓ Auto-authentication completed for user {current_user.id} (with MFA)")
-                        return jsonify({
-                            'status': 'success',
-                            'message': 'Authentication successful'
-                        })
-
-                except asyncio.TimeoutError:
-                    # Still waiting - return current status
-                    return jsonify(handler.get_status())
-            finally:
-                loop.close()
-
-        # Return current status
-        return jsonify(handler.get_status())
+        # Return current status (still waiting or error)
+        return jsonify(status)
 
     except Exception as e:
         logger.error(f"Auto-auth status error: {e}", exc_info=True)
         return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+# ============================================================================
+# DESK REMAPPING
+# ============================================================================
+
+# Track active remapping sessions
+_active_remap_sessions = {}
+
+@app.route('/tools/remap-desks')
+@login_required
+def remap_desks_page():
+    """Desk remapping interface"""
+    return render_template('remap_desks.html', user=current_user)
+
+
+@app.route('/api/tools/remap-desks/start', methods=['POST'])
+@login_required
+def api_start_desk_remap():
+    """Start desk remapping process"""
+    try:
+        # Check if already running (only block if status is 'running' or 'starting')
+        if current_user.id in _active_remap_sessions:
+            existing_status = _active_remap_sessions[current_user.id].get('status')
+            if existing_status in ['running', 'starting']:
+                return jsonify({
+                    'success': False,
+                    'error': 'Desk remapping is already in progress'
+                }), 400
+            else:
+                # Clear old session (error or completed) so we can start a new one
+                del _active_remap_sessions[current_user.id]
+
+        # Check if user has valid SpaceIQ session
+        spaceiq_session = SpaceIQSession.query.filter_by(user_id=current_user.id).first()
+        if not spaceiq_session or not spaceiq_session.session_data or not spaceiq_session.is_valid:
+            return jsonify({
+                'success': False,
+                'error': 'No valid SpaceIQ session found. Please authenticate first.',
+                'needs_auth': True
+            }), 401
+
+        # Verify session can be decrypted
+        try:
+            from src.utils.auth_encryption import decrypt_data
+            decrypted = decrypt_data(spaceiq_session.session_data)
+            json.loads(decrypted)
+        except Exception as e:
+            logger.warning(f"Session decryption failed for user {current_user.id}: {e}")
+            return jsonify({
+                'success': False,
+                'error': 'Session decryption failed. Please re-authenticate.',
+                'needs_auth': True
+            }), 401
+
+        # Initialize remap session tracker
+        _active_remap_sessions[current_user.id] = {
+            'status': 'starting',
+            'progress': [],
+            'total_desks': 0,
+            'permanent_desks': 0,
+            'error': None
+        }
+
+        # Run remapping in background thread
+        import threading
+        thread = threading.Thread(
+            target=_run_desk_remapping_background,
+            args=(current_user.id,),
+            daemon=True
+        )
+        thread.start()
+
+        logger.info(f"Started desk remapping for user {current_user.id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Desk remapping started'
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to start desk remapping: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/tools/remap-desks/status')
+@login_required
+def api_remap_desk_status():
+    """Get desk remapping progress"""
+    try:
+        session = _active_remap_sessions.get(current_user.id)
+
+        if not session:
+            return jsonify({
+                'status': 'not_started',
+                'progress': []
+            })
+
+        return jsonify(session)
+
+    except Exception as e:
+        logger.error(f"Error getting remap status: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
+def _run_desk_remapping_background(user_id: int):
+    """Background task to run desk remapping"""
+    try:
+        import asyncio
+        from map_desk_positions import map_desk_positions
+
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        # Update status
+        _active_remap_sessions[user_id]['status'] = 'running'
+
+        # Progress callback to update session tracker
+        def progress_callback(message):
+            """Add progress message to session tracker"""
+            _active_remap_sessions[user_id]['progress'].append({
+                'time': datetime.utcnow().isoformat(),
+                'message': message
+            })
+
+        # Run the mapping function in web mode (raises exception on session expiry)
+        result = loop.run_until_complete(
+            map_desk_positions(user_id=user_id, web_mode=True, progress_callback=progress_callback)
+        )
+
+        _active_remap_sessions[user_id]['status'] = 'completed'
+        _active_remap_sessions[user_id]['progress'].append({
+            'time': datetime.utcnow().isoformat(),
+            'message': 'Desk remapping completed successfully!'
+        })
+
+    except Exception as e:
+        logger.error(f"Desk remapping background task error for user {user_id}: {e}", exc_info=True)
+        if user_id in _active_remap_sessions:
+            _active_remap_sessions[user_id]['status'] = 'error'
+            _active_remap_sessions[user_id]['error'] = str(e)
+
+            # Check if it's a session expiry error
+            if "Session expired" in str(e) or "re-authenticate" in str(e):
+                _active_remap_sessions[user_id]['needs_auth'] = True
+
+            _active_remap_sessions[user_id]['progress'].append({
+                'time': datetime.utcnow().isoformat(),
+                'message': f'Error: {str(e)}'
+            })
 
 
 # ============================================================================

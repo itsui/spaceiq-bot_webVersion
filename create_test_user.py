@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 """
 Create a test user for testing the bot functionality
+
+⚠️  WARNING: This script is for DEVELOPMENT/TESTING ONLY!
+DO NOT run this in a production environment!
 """
 
 import sys
+import os
 from pathlib import Path
 
 # Add current directory to path
@@ -14,6 +18,16 @@ from models import User, BotConfig, BotInstance
 
 def create_test_user():
     """Create a test user with default configuration"""
+    # Safety check: refuse to run in production
+    flask_env = os.getenv('FLASK_ENV', 'development')
+    if flask_env == 'production':
+        print("❌ ERROR: This script cannot run in production mode!")
+        print("   Set FLASK_ENV=development in .env to run this script")
+        print("   Or use the web interface to create users securely")
+        sys.exit(1)
+
+    print("⚠️  Running in DEVELOPMENT mode - creating test user...")
+
     with app.app_context():
         # Check if user already exists
         existing_user = User.query.filter_by(username='testuser').first()

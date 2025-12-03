@@ -27,9 +27,6 @@ requests>=2.31.0
 beautifulsoup4>=4.12.2
 lxml>=4.9.3
 
-# Utilities
-pathlib2==2.3.7; python_version < '3.4'
-
 # Optional: Production monitoring
 # sentry-sdk[flask]==1.32.0  # Error tracking
 # prometheus-flask-exporter==0.22.1  # Metrics
