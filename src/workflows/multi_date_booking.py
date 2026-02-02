@@ -789,6 +789,45 @@ async def run_multi_date_booking_web_mode(
 
     web_logger.info("Starting Multi-Date Booking (Web Mode)")
 
+    # ========================================
+    # AUTO-REMAP CHECK
+    # ========================================
+    # Check if desk position cache needs remapping before starting
+    from src.utils.desk_position_cache import get_cache
+    cache = get_cache()
+    
+    if cache.needs_remap(max_age_days=7, min_desks=50):
+        remap_reason = cache.get_remap_reason(max_age_days=7, min_desks=50)
+        web_logger.info(f"🗺️ AUTO-REMAP: {remap_reason}")
+        web_logger.info("🔄 Starting automatic desk remapping...")
+        
+        try:
+            from map_desk_positions import map_desk_positions
+            
+            # Create progress callback to log to web logger
+            def remap_progress(message):
+                web_logger.info(f"[REMAP] {message}")
+            
+            # Run remapping
+            remap_result = await map_desk_positions(
+                user_id=user_id,
+                web_mode=True,
+                progress_callback=remap_progress
+            )
+            
+            if remap_result and remap_result.get('success'):
+                web_logger.info(f"✅ Auto-remap complete! Mapped {remap_result.get('total_desks', 0)} desks")
+                # Reload cache after remapping
+                cache.load()
+            else:
+                web_logger.warning("⚠️ Auto-remap completed with issues, continuing anyway...")
+                
+        except Exception as e:
+            web_logger.warning(f"⚠️ Auto-remap failed: {e} - continuing with existing cache")
+    else:
+        cache_info = cache.get_cache_info()
+        web_logger.info(f"✓ Desk cache OK: {cache_info.get('total_desks', 0)} desks, last updated {cache_info.get('last_updated', 'unknown')[:10]}")
+
     # Get user-specific screenshot directory if provided (for multiuser isolation)
     screenshots_dir = config.get('screenshots_dir')
     if screenshots_dir:
@@ -1054,8 +1093,10 @@ async def run_multi_date_booking_web_mode(
                     continue
 
             # Dates are already sorted (furthest first), so maintain that order
-            date_word = "date" if len(dates_to_try_now) == 1 else "dates"
-            web_logger.info(f"Attempting {len(dates_to_try_now)} {date_word} this round")
+            # Only log when we have dates to attempt (avoid "Attempting 0 dates" message)
+            if dates_to_try_now:
+                date_word = "date" if len(dates_to_try_now) == 1 else "dates"
+                web_logger.info(f"Attempting {len(dates_to_try_now)} {date_word} this round")
 
             # Update config and database with the fresh recalculated dates
             config['dates_to_try'] = recalculated_dates
@@ -1071,44 +1112,74 @@ async def run_multi_date_booking_web_mode(
                 web_logger.warning(f"Failed to update dates in database: {e}")
 
             if not dates_to_try_now:
-                if existing_bookings and continuous_loop:
-                    # DYNAMIC WAIT TIME: Be more aggressive around midnight when new dates become available!
+                if continuous_loop:
+                    # ========================================
+                    # LIGHTWEIGHT MODE - All dates are booked!
+                    # ========================================
+                    # - Recalculate dates every hour during the day
+                    # - Aggressive checks around midnight for new dates
+                    # - Check for config changes every minute
+                    # - Keep SpaceIQ session alive periodically
+                    # - No CV or heavy tasks
+                    
                     current_time = datetime.now()
-
-                    # Check if we're in the "golden hour" after midnight (12:00 AM - 1:00 AM)
-                    # This is when new booking dates typically become available
-                    if current_time.hour == 0:  # Between 12:00 AM and 12:59 AM
-                        wait_time = 60  # Check every 1 minute - very aggressive!
-                        web_logger.info(f"MIDNIGHT SPECIAL! All dates booked, but it's {current_time.strftime('%H:%M')} - checking every {wait_time}s for new dates!")
-                    elif current_time.hour <= 2:  # Between 1:00 AM and 2:59 AM - still be aggressive
-                        wait_time = 120  # Check every 2 minutes
-                        web_logger.info(f"EARLY MORNING! All dates booked, checking every {wait_time}s for new dates...")
-                    elif current_time.hour <= 6:  # Between 3:00 AM and 6:59 AM - moderate checking
-                        wait_time = 180  # Check every 3 minutes
-                        web_logger.info(f"PRE-DAWN: All dates booked, checking every {wait_time}s...")
+                    
+                    # Track when we last pinged SpaceIQ to keep session alive
+                    if not hasattr(run_multi_date_booking_web_mode, '_last_keepalive'):
+                        run_multi_date_booking_web_mode._last_keepalive = current_time
+                    
+                    # Track config modification time to detect changes
+                    if not hasattr(run_multi_date_booking_web_mode, '_last_config_check'):
+                        run_multi_date_booking_web_mode._last_config_check = None
+                    
+                    # Determine wait time based on time of day
+                    if current_time.hour == 0 and current_time.minute < 10:  # 12:00 AM - 12:10 AM
+                        wait_time = 60  # Check every 1 minute - new dates become available!
+                        web_logger.info(f"🌙 MIDNIGHT MODE: All {len(existing_bookings)} dates booked! Checking for new dates in {wait_time}s...")
                     else:
-                        # Normal daytime - use user's configured wait time
-                        wait_time = calculate_wait_time_from_config(round_num, config)
-                        web_logger.info(f"DAYTIME: All dates already booked, waiting {wait_time}s for cancellations...")
-
-                    # Special countdown for midnight hunting
-                    if current_time.hour == 0:
-                        web_logger.info(f"HUNTING for new dates that become available at midnight!")
-
-                    # Show progress during wait
-                    for remaining in range(wait_time, 0, -10):
-                        if remaining >= 10:
-                            await asyncio.sleep(10)
-                            if current_time.hour == 0 and remaining % 30 == 0:  # Extra logging during midnight hour
-                                web_logger.debug(f"Still waiting... {remaining}s until next date check")
-                        else:
-                            await asyncio.sleep(remaining)
-                            break
-
+                        # Normal time - check every 1 hour
+                        wait_time = 3600  # 1 hour
+                        web_logger.info(f"✅ All {len(existing_bookings)} dates booked! Next check in {wait_time // 60}m...")
+                    
+                    # Keep SpaceIQ session alive with periodic lightweight pings (every 30 minutes)
+                    time_since_keepalive = (current_time - run_multi_date_booking_web_mode._last_keepalive).total_seconds()
+                    if time_since_keepalive >= 1800:  # 30 minutes
+                        try:
+                            web_logger.info("🔄 Keeping SpaceIQ session alive...")
+                            # Lightweight ping - just navigate to landing page (no CV, no heavy work)
+                            await booking_page.navigate_to_floor_view(building, floor)
+                            run_multi_date_booking_web_mode._last_keepalive = current_time
+                            web_logger.info("✓ Session keepalive successful")
+                        except Exception as e:
+                            web_logger.warning(f"Session keepalive failed: {e}")
+                    
+                    # Wait in chunks of 60s to check for config changes
+                    # This allows quick response when user saves new dates in /config
+                    wait_start = datetime.now()
+                    while (datetime.now() - wait_start).total_seconds() < wait_time:
+                        await asyncio.sleep(60)  # Check every minute
+                        
+                        # Check if config has changed (user saved new dates)
+                        if app_context and user_id:
+                            try:
+                                with app_context:
+                                    from models import BotConfig
+                                    bot_config = BotConfig.query.filter_by(user_id=user_id).first()
+                                    if bot_config:
+                                        current_updated = bot_config.updated_at
+                                        if run_multi_date_booking_web_mode._last_config_check is None:
+                                            run_multi_date_booking_web_mode._last_config_check = current_updated
+                                        elif current_updated > run_multi_date_booking_web_mode._last_config_check:
+                                            web_logger.info("📋 Config change detected! Recalculating dates now...")
+                                            run_multi_date_booking_web_mode._last_config_check = current_updated
+                                            break  # Exit wait loop to recalculate dates immediately
+                            except Exception as e:
+                                pass  # Silently ignore config check errors
+                    
                     round_num += 1
                     continue
                 else:
-                    web_logger.info("No more dates to try")
+                    web_logger.info("✅ All dates are booked - nothing left to do!")
                     break
 
             # Try booking each date

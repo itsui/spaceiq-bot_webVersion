@@ -117,6 +117,71 @@ class DeskPositionCache:
             "mapping_date": self.cache.get("mapping_date")
         }
 
+    def needs_remap(self, max_age_days: int = 7, min_desks: int = 50) -> bool:
+        """
+        Check if the cache needs remapping.
+
+        Returns True if:
+        - Cache doesn't exist
+        - Cache is older than max_age_days
+        - Cache has fewer than min_desks entries
+
+        Args:
+            max_age_days: Maximum age in days before cache is considered stale
+            min_desks: Minimum number of desks expected in cache
+
+        Returns:
+            True if remapping is recommended
+        """
+        if not self.is_available():
+            return True
+
+        # Check if cache has enough desks
+        if len(self.desk_positions) < min_desks:
+            return True
+
+        # Check cache age
+        last_updated = self.cache.get("last_updated")
+        if last_updated:
+            try:
+                from datetime import datetime
+                # Handle both ISO formats (with and without microseconds)
+                cache_date = datetime.fromisoformat(last_updated.replace('Z', ''))
+                age_days = (datetime.now() - cache_date).days
+                if age_days > max_age_days:
+                    return True
+            except Exception:
+                # Date parsing failed - assume stale
+                return True
+
+        return False
+
+    def get_remap_reason(self, max_age_days: int = 7, min_desks: int = 50) -> str:
+        """
+        Get a human-readable reason why remapping is needed.
+
+        Returns:
+            Reason string or None if no remap needed
+        """
+        if not self.is_available():
+            return "Cache file missing or empty"
+
+        if len(self.desk_positions) < min_desks:
+            return f"Cache only has {len(self.desk_positions)} desks (minimum: {min_desks})"
+
+        last_updated = self.cache.get("last_updated")
+        if last_updated:
+            try:
+                from datetime import datetime
+                cache_date = datetime.fromisoformat(last_updated.replace('Z', ''))
+                age_days = (datetime.now() - cache_date).days
+                if age_days > max_age_days:
+                    return f"Cache is {age_days} days old (maximum: {max_age_days})"
+            except Exception:
+                return "Cannot parse cache date"
+
+        return None
+
     def validate_viewport(self, current_viewport: dict) -> bool:
         """
         Check if cache viewport matches current viewport.
