@@ -68,6 +68,9 @@ async def map_desk_positions(user_id: int = 1, web_mode: bool = False, progress_
         user_id: User ID to load session from database (default: 1)
         web_mode: If True, raise exception on session expiry instead of waiting for manual login
         progress_callback: Optional callback function to report progress updates
+
+    Returns:
+        Dictionary with 'total_desks', 'permanent_desks', and 'success' keys
     """
     # Setup logging
     logger, log_file = setup_file_logger()
@@ -438,6 +441,15 @@ async def map_desk_positions(user_id: int = 1, web_mode: bool = False, progress_
 
         print("\n✓ Position cache is ready!")
         print("  Booking will now be 10x faster! ⚡\n")
+
+        # Return results for web UI
+        return {
+            'success': True,
+            'total_desks': len(desk_positions),
+            'permanent_desks': len(permanent_desks_detected),
+            'console_log': str(console_log_file),
+            'detail_log': str(log_file)
+        }
 
     except Exception as e:
         error_msg = f"Mapping failed: {e}"

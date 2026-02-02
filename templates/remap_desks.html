@@ -24,7 +24,8 @@
                                 <li>Saving desk coordinates to a cache file</li>
                                 <li>Detecting permanent/locked desks</li>
                             </ul>
-                            <p class="mb-0"><strong>Result:</strong> Booking will be 10x faster with the position cache!</p>
+                            <p class="mb-0"><strong>Result:</strong> Booking will be 10x faster with the position cache!
+                            </p>
                         </div>
 
                         <button class="btn btn-primary btn-lg" id="startBtn" onclick="startRemapping()">
@@ -43,7 +44,7 @@
 
                         <div class="progress mb-3" style="height: 25px;">
                             <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
-                                 role="progressbar" style="width: 0%">0%</div>
+                                role="progressbar" style="width: 0%">0%</div>
                         </div>
 
                         <div class="card">
@@ -98,124 +99,125 @@
 </div>
 
 <script>
-let pollInterval = null;
-let progressCount = 0;
+    let pollInterval = null;
+    let progressCount = 0;
 
-async function startRemapping() {
-    try {
-        // Hide info, show progress
-        document.getElementById('infoDiv').style.display = 'none';
-        document.getElementById('progressDiv').style.display = 'block';
+    async function startRemapping() {
+        try {
+            // Hide info, show progress
+            document.getElementById('infoDiv').style.display = 'none';
+            document.getElementById('progressDiv').style.display = 'block';
 
-        // Start remapping
-        const response = await fetch('/api/tools/remap-desks/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+            // Start remapping
+            const response = await fetch('/api/tools/remap-desks/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
 
-        const data = await response.json();
+            const data = await response.json();
 
-        if (!data.success) {
-            // Check if authentication is needed
-            if (data.needs_auth) {
-                // Redirect to authentication page with force=true and return URL
-                window.location.href = '/auth/auto?force=true&return_to=/tools/remap-desks';
+            if (!data.success) {
+                // Check if authentication is needed
+                if (data.needs_auth) {
+                    // Redirect to authentication page with force=true and return URL
+                    window.location.href = '/auth/auto?force=true&return_to=/tools/remap-desks';
+                    return;
+                }
+
+                showError(data.error || 'Failed to start desk remapping');
                 return;
             }
 
-            showError(data.error || 'Failed to start desk remapping');
-            return;
+            // Start polling for progress
+            pollInterval = setInterval(checkProgress, 1000);
+
+        } catch (error) {
+            showError(error.message);
         }
-
-        // Start polling for progress
-        pollInterval = setInterval(checkProgress, 1000);
-
-    } catch (error) {
-        showError(error.message);
     }
-}
 
-async function checkProgress() {
-    try {
-        const response = await fetch('/api/tools/remap-desks/status');
-        const data = await response.json();
+    async function checkProgress() {
+        try {
+            const response = await fetch('/api/tools/remap-desks/status');
+            const data = await response.json();
 
-        // Update status text
-        document.getElementById('statusText').textContent =
-            data.status === 'running' ? 'Mapping desks...' :
-            data.status === 'starting' ? 'Starting...' :
-            data.status === 'completed' ? 'Completed!' :
-            data.status === 'error' ? 'Error occurred' :
-            'Unknown status';
+            // Update status text
+            document.getElementById('statusText').textContent =
+                data.status === 'running' ? 'Mapping desks...' :
+                    data.status === 'starting' ? 'Starting...' :
+                        data.status === 'completed' ? 'Completed!' :
+                            data.status === 'error' ? 'Error occurred' :
+                                'Unknown status';
 
-        // Update progress log
-        if (data.progress && data.progress.length > progressCount) {
-            const logDiv = document.getElementById('progressLog');
+            // Update progress log
+            if (data.progress && data.progress.length > progressCount) {
+                const logDiv = document.getElementById('progressLog');
 
-            // Clear "waiting" message on first update
-            if (progressCount === 0) {
-                logDiv.innerHTML = '';
+                // Clear "waiting" message on first update
+                if (progressCount === 0) {
+                    logDiv.innerHTML = '';
+                }
+
+                // Add new progress messages
+                for (let i = progressCount; i < data.progress.length; i++) {
+                    const entry = data.progress[i];
+                    const time = new Date(entry.time).toLocaleTimeString();
+                    const logEntry = document.createElement('div');
+                    logEntry.className = 'mb-1';
+                    logEntry.innerHTML = `<span class="text-muted">[${time}]</span> ${entry.message}`;
+                    logDiv.appendChild(logEntry);
+                }
+
+                progressCount = data.progress.length;
+
+                // Auto-scroll to bottom
+                logDiv.scrollTop = logDiv.scrollHeight;
             }
 
-            // Add new progress messages
-            for (let i = progressCount; i < data.progress.length; i++) {
-                const entry = data.progress[i];
-                const time = new Date(entry.time).toLocaleTimeString();
-                const logEntry = document.createElement('div');
-                logEntry.className = 'mb-1';
-                logEntry.innerHTML = `<span class="text-muted">[${time}]</span> ${entry.message}`;
-                logDiv.appendChild(logEntry);
+            // Handle completion
+            if (data.status === 'completed') {
+                clearInterval(pollInterval);
+                showSuccess(data);
+            } else if (data.status === 'error') {
+                clearInterval(pollInterval);
+
+                // Check if authentication is needed
+                if (data.needs_auth) {
+                    // Redirect to authentication page with force=true and return URL
+                    window.location.href = '/auth/auto?force=true&return_to=/tools/remap-desks';
+                    return;
+                }
+
+                showError(data.error || 'An unknown error occurred');
             }
 
-            progressCount = data.progress.length;
-
-            // Auto-scroll to bottom
-            logDiv.scrollTop = logDiv.scrollHeight;
+        } catch (error) {
+            console.error('Poll error:', error);
         }
-
-        // Handle completion
-        if (data.status === 'completed') {
-            clearInterval(pollInterval);
-            showSuccess(data);
-        } else if (data.status === 'error') {
-            clearInterval(pollInterval);
-
-            // Check if authentication is needed
-            if (data.needs_auth) {
-                // Redirect to authentication page with force=true and return URL
-                window.location.href = '/auth/auto?force=true&return_to=/tools/remap-desks';
-                return;
-            }
-
-            showError(data.error || 'An unknown error occurred');
-        }
-
-    } catch (error) {
-        console.error('Poll error:', error);
     }
-}
 
-function showSuccess(data) {
-    document.getElementById('progressDiv').style.display = 'none';
-    document.getElementById('successDiv').style.display = 'block';
+    function showSuccess(data) {
+        document.getElementById('progressDiv').style.display = 'none';
+        document.getElementById('successDiv').style.display = 'block';
 
-    // Show results
-    const details = document.getElementById('resultsDetails');
-    details.innerHTML = `
+        // Show results
+        const details = document.getElementById('resultsDetails');
+        details.innerHTML = `
         <p><strong>Total Desks Mapped:</strong> ${data.total_desks || 0}</p>
         <p><strong>Permanent Desks Found:</strong> ${data.permanent_desks || 0}</p>
-        <p class="mb-0">Cache saved to: <code>config/desk_positions.json</code></p>
+        <p class="mb-2">Cache saved to: <code>config/desk_positions.json</code></p>
+        ${data.console_log ? `<p class="text-muted mb-0"><small>Log file: <code>${data.console_log}</code></small></p>` : ''}
     `;
-}
+    }
 
-function showError(message) {
-    if (pollInterval) clearInterval(pollInterval);
+    function showError(message) {
+        if (pollInterval) clearInterval(pollInterval);
 
-    document.getElementById('infoDiv').style.display = 'none';
-    document.getElementById('progressDiv').style.display = 'none';
-    document.getElementById('errorDiv').style.display = 'block';
-    document.getElementById('errorText').textContent = message;
-}
+        document.getElementById('infoDiv').style.display = 'none';
+        document.getElementById('progressDiv').style.display = 'none';
+        document.getElementById('errorDiv').style.display = 'block';
+        document.getElementById('errorText').textContent = message;
+    }
 </script>
 
 {% endblock %}

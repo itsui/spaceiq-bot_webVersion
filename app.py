@@ -1612,10 +1612,17 @@ def _run_desk_remapping_background(user_id: int):
             map_desk_positions(user_id=user_id, web_mode=True, progress_callback=progress_callback)
         )
 
+        # Store the results for UI display
+        if result:
+            _active_remap_sessions[user_id]['total_desks'] = result.get('total_desks', 0)
+            _active_remap_sessions[user_id]['permanent_desks'] = result.get('permanent_desks', 0)
+            _active_remap_sessions[user_id]['console_log'] = result.get('console_log', '')
+            _active_remap_sessions[user_id]['detail_log'] = result.get('detail_log', '')
+
         _active_remap_sessions[user_id]['status'] = 'completed'
         _active_remap_sessions[user_id]['progress'].append({
             'time': datetime.utcnow().isoformat(),
-            'message': 'Desk remapping completed successfully!'
+            'message': f"Desk remapping completed! Mapped {result.get('total_desks', 0)} desks, found {result.get('permanent_desks', 0)} permanent desks."
         })
 
     except Exception as e:
