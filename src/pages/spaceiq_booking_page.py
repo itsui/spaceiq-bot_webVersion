@@ -275,13 +275,14 @@ class SpaceIQBookingPage(BasePage):
         # Verbose output suppressed - using pretty output in workflow
         # print("       Floor map loaded with availability circles")
 
-    async def get_available_desks_from_sidebar(self, desk_prefix: str, logger=None) -> list:
+    async def get_available_desks_from_sidebar(self, desk_prefix: str, logger=None, locked_desks: list = None) -> list:
         """
         Parse sidebar to find available desks.
 
         Args:
             desk_prefix: Desk prefix to filter (e.g., "2.24")
             logger: Optional logger
+            locked_desks: Optional list of permanently locked desk codes (user-specific)
 
         Returns:
             List of available desk codes
@@ -316,23 +317,25 @@ class SpaceIQBookingPage(BasePage):
         # Generate all possible desks for prefix
         all_possible_desks = [f"{desk_prefix}.{i:02d}" for i in range(1, 71)]
 
-        # Load locked desks from config file
-        config_path = Path(__file__).parent.parent.parent / "config" / "locked_desks.json"
-        try:
-            with open(config_path, 'r') as f:
-                locked_config = json.load(f)
-                permanent_desks = locked_config.get("locked_desks", {}).get(desk_prefix, [])
-                msg = f"Loaded {len(permanent_desks)} locked desks from config"
-                if logger:
-                    logger.info(msg)
-        except FileNotFoundError:
-            # Verbose output suppressed - using empty list silently
-            # print(f"       [WARNING] locked_desks.json not found, using empty list")
-            permanent_desks = []
-        except Exception as e:
-            # Verbose output suppressed
-            # print(f"       [WARNING] Error loading locked desks config: {e}")
-            permanent_desks = []
+        # Load locked desks from user config or fallback to global config file
+        if locked_desks is not None:
+            # Use user-specific locked desks from database
+            permanent_desks = [desk for desk in locked_desks if desk.startswith(desk_prefix)]
+            if logger and len(permanent_desks) > 0:
+                logger.info(f"Using {len(permanent_desks)} user-specific permanent desks")
+        else:
+            # Fallback to global config file (backwards compatibility)
+            config_path = Path(__file__).parent.parent.parent / "config" / "locked_desks.json"
+            try:
+                with open(config_path, 'r') as f:
+                    locked_config = json.load(f)
+                    permanent_desks = locked_config.get("locked_desks", {}).get(desk_prefix, [])
+                    if logger and len(permanent_desks) > 0:
+                        logger.info(f"Loaded {len(permanent_desks)} locked desks from global config")
+            except FileNotFoundError:
+                permanent_desks = []
+            except Exception as e:
+                permanent_desks = []
 
         # Calculate available = all - booked - permanent
         available_desks = [
@@ -374,16 +377,22 @@ class SpaceIQBookingPage(BasePage):
 
     async def find_and_click_available_desks(self, available_desks: List[str], logger=None) -> Optional[str]:
         """
-        Find available desks using CV and click them in priority order.
+        Locate and click the highest priority desk from available_desks.
 
-        Strategy:
-        1. Detect blue circles using CV (fast)
-        2. If position cache available:
-           - Look up desk codes from circle positions (instant)
-           - Click highest priority desk directly (fast)
-        3. If no cache:
-           - Click all circles to identify desks (slow)
-           - Then click highest priority desk
+        Two-path approach (FAST PATH first, CV FALLBACK second):
+
+        FAST PATH (try first):
+        1. Check if desks have cached positions
+        2. Try booking directly from cache (no CV needed!)
+        3. Verify popup appeared with correct desk
+        4. If successful, return immediately ⚡
+
+        SLOW PATH (CV fallback):
+        1. If cached positions fail, detect blue circles via CV
+        2. Validate cached positions against actual circles (15px tolerance)
+        3. Click unknown circles to identify missing desks
+        4. Update cache with newly discovered positions
+        5. Book using validated/discovered positions
 
         Args:
             available_desks: List of available desk codes in PRIORITY ORDER (e.g., ['2.24.20', '2.24.28'])
@@ -397,6 +406,7 @@ class SpaceIQBookingPage(BasePage):
         from src.utils.desk_position_cache import get_cache
         import os
         import re
+        import math
 
         # Get viewport size (affects cache matching)
         viewport_size = self.page.viewport_size
@@ -405,14 +415,76 @@ class SpaceIQBookingPage(BasePage):
         cache = get_cache()
         use_cache = cache.is_available() and cache.validate_viewport(viewport_size)
 
+        # ========================================
+        # FAST PATH: Try cached positions first
+        # ========================================
         if use_cache:
-            # Using cached desk positions (fast mode)
             if logger:
-                logger.info(f"Using position cache")
-        else:
-            # No cache or viewport mismatch - using discovery mode
-            if logger and not cache.is_available():
-                logger.info("No position cache - using discovery mode")
+                logger.info("=== FAST PATH: Attempting direct booking from cache ===")
+
+            # Check how many desks have cached positions
+            cached_count = sum(1 for desk in available_desks if cache.get_position(desk) is not None)
+
+            if logger:
+                logger.info(f"Cache check: {cached_count}/{len(available_desks)} desks found in position cache")
+                if cached_count == 0:
+                    missing = [desk for desk in available_desks if cache.get_position(desk) is None]
+                    logger.info(f"Missing from cache: {missing}")
+                    logger.info("Skipping fast path - falling back to CV detection")
+
+            if cached_count > 0:
+                if logger:
+                    logger.info(f"Attempting direct booking for {cached_count} cached desk(s)...")
+
+                # Try to book directly from cache (in priority order)
+                for desk_code in available_desks:
+                    cached_pos = cache.get_position(desk_code)
+                    if not cached_pos:
+                        continue  # Skip desks not in cache
+
+                    x, y = cached_pos
+                    if logger:
+                        logger.info(f"Attempting to book {desk_code} from cache at ({x}, {y})")
+
+                    # Click the cached position
+                    await self.page.mouse.click(x, y)
+                    await asyncio.sleep(1.5)
+
+                    # Verify popup appeared with correct desk
+                    popup = self.page.locator('td:has-text("Hoteling Desk")').first
+                    try:
+                        await popup.wait_for(state='visible', timeout=3000)
+                        popup_text = await popup.text_content()
+
+                        if popup_text and desk_code in popup_text:
+                            # Successfully clicked the right desk!
+                            if logger:
+                                logger.info(f"✓ Successfully booked {desk_code} using cached position!")
+                            return desk_code
+                        else:
+                            # Wrong desk or no popup - cached position might be stale
+                            if logger:
+                                logger.warning(f"Cached position for {desk_code} didn't match - will try CV fallback")
+                            await self.close_popup(logger=logger)
+                            continue
+
+                    except Exception:
+                        # No popup appeared - cached position is wrong
+                        if logger:
+                            logger.warning(f"No popup at cached position for {desk_code} - will try CV fallback")
+                        continue
+
+                # If we get here, cached positions didn't work - fall through to CV detection
+                if logger:
+                    logger.warning("⚠️ Cached positions failed - falling back to CV detection...")
+
+        # ========================================
+        # SLOW PATH: CV Detection Fallback
+        # ========================================
+        if logger:
+            logger.info("=== SLOW PATH: CV Detection Fallback ===")
+            if not use_cache:
+                logger.info("Reason: No position cache available or viewport mismatch")
 
         # Get latest screenshot path (use self.screenshots_dir for per-user isolation)
         screenshot_files = sorted(
@@ -422,133 +494,200 @@ class SpaceIQBookingPage(BasePage):
         )
 
         if not screenshot_files:
-            # print("       [FAILED] No floor map screenshot found")
             return None
 
         screenshot_path = str(screenshot_files[0])
-        # Using latest screenshot for CV detection
 
         # Detect blue circles
         circles = self.desk_detector.find_blue_circles(screenshot_path, debug=True)
 
         if not circles:
-            # print(f"       [FAILED] No blue circles detected")
             if logger:
                 logger.error("CV Detection failed: No blue circles found in screenshot")
             return None
 
-        # Only log count, not coordinates (reduces log spam)
         if logger:
             logger.info(f"CV Detection - Found {len(circles)} blue circles")
 
-        # PHASE 1: Discovery - Map all blue circles to desk codes
+        # PHASE 1: Smart Discovery - Load cache first, then click only missing desks
         desk_to_coords = {}  # {desk_code: (x, y)}
 
-        # Fast path: Use cache if available
+        # Step 1: Load cached positions and validate against actual circles
+        cached_positions = {}
         if use_cache:
-            # print(f"       PHASE 1: Looking up desk codes from cache... ⚡")
-            desk_to_coords = cache.lookup_desks_from_circles(circles, tolerance=10)
+            tolerance = 15  # Allow 15px variation for slight browser rendering differences
 
-            if logger:
-                logger.info(f"Cache lookup - Identified {len(desk_to_coords)} desks from cache")
+            for desk_code in available_desks:
+                cached_pos = cache.get_position(desk_code)
+                if cached_pos:
+                    # Find the closest actual circle to the cached position
+                    cached_x, cached_y = cached_pos
+                    closest_circle = None
+                    min_distance = float('inf')
 
-            # print(f"       ✓ Identified {len(desk_to_coords)} desks instantly from cache")
+                    for (circle_x, circle_y) in circles:
+                        distance = math.sqrt((cached_x - circle_x) ** 2 + (cached_y - circle_y) ** 2)
+                        if distance < min_distance:
+                            min_distance = distance
+                            closest_circle = (circle_x, circle_y)
 
-            # Log any circles that weren't in cache
-            if len(desk_to_coords) < len(circles):
-                unknown_count = len(circles) - len(desk_to_coords)
-                # print(f"       ℹ️  {unknown_count} circle(s) not in cache (may be new desks)")
+                    # Use actual circle position if within tolerance, otherwise use cached position
+                    if closest_circle and min_distance <= tolerance:
+                        cached_positions[desk_code] = closest_circle
+                        if logger and min_distance > 5:
+                            logger.debug(f"  {desk_code}: Adjusted position by {int(min_distance)}px")
+                    elif closest_circle:
+                        # Circle moved too far - treat as missing
+                        if logger:
+                            logger.warning(f"  {desk_code}: Cached position off by {int(min_distance)}px (>tolerance) - will re-identify")
+                    else:
+                        # Use cached position as fallback
+                        cached_positions[desk_code] = cached_pos
+
+            if cached_positions:
                 if logger:
-                    logger.info(f"Found {unknown_count} circles not in cache - these may be newly added desks")
+                    logger.info(f"⚡ Found {len(cached_positions)}/{len(available_desks)} needed desks in cache")
 
-        # Slow path: Click all circles to identify desks
-        else:
-            # print(f"       PHASE 1: Identifying all blue circle desks...")
+        # Step 2: Determine which desks are missing from cache
+        missing_desks = set(available_desks) - set(cached_positions.keys())
 
-            for i, (x, y) in enumerate(circles, 1):
-                try:
-                    # Checking circle silently (verbose mode disabled to reduce spam)
-                    if logger and i % 10 == 1:  # Only log every 10th circle
-                        logger.info(f"Checking circles... ({i}/{len(circles)})")
+        # Step 3: If we have missing desks, identify them by clicking unknown circles
+        if missing_desks:
+            if logger:
+                logger.info(f"Need to identify {len(missing_desks)} missing desk(s): {sorted(missing_desks)}")
 
-                    # Click the circle
-                    await self.page.mouse.click(x, y)
-                    await asyncio.sleep(1.5)
+            # Find circles that are NOT in cache (potential missing desks)
+            unknown_circles = []
+            if use_cache:
+                # Only check cache if viewport matches
+                for (x, y) in circles:
+                    if not cache.find_desk_at_position(x, y, tolerance=10):
+                        unknown_circles.append((x, y))
+            else:
+                # No valid cache - all circles are unknown
+                unknown_circles = circles
 
-                    # Check if popup appeared - use the specific HTML element from the popup dialog
-                    # Looking for: <td colspan="2">Hoteling Desk 2.24.40</td>
-                    # IMPORTANT: Create a fresh locator AFTER clicking to avoid stale element references
-                    popup = self.page.locator('td:has-text("Hoteling Desk")').first
+            if unknown_circles:
+                if logger:
+                    logger.info(f"Found {len(unknown_circles)} unknown circle(s) - clicking to identify...")
 
-                    # Wait for popup to be visible (with timeout)
-                    try:
-                        await popup.wait_for(state='visible', timeout=3000)
-                    except Exception as popup_error:
-                        msg = f"No popup appeared for circle at ({x}, {y})"
-                        # print(f"       → {msg}")
+                # Click ONLY unknown circles to identify them
+                for i, (x, y) in enumerate(unknown_circles, 1):
+                    # Stop if we've found all missing desks
+                    if not missing_desks:
                         if logger:
-                            logger.warning(f"{msg}: {popup_error}")
-                        continue
+                            logger.info(f"Found all missing desks - stopping circle checks")
+                        break
 
-                    # Read popup text
                     try:
-                        popup_text = await popup.text_content()
-                    except Exception as text_error:
-                        msg = f"Failed to read popup text for circle at ({x}, {y})"
-                        # print(f"       → {msg}")
                         if logger:
-                            logger.warning(f"{msg}: {text_error}")
-                        continue
+                            logger.info(f"Circle {i}/{len(unknown_circles)}: Clicking at ({x}, {y})...")
 
-                    if popup_text:
-                        # Popup text received (verbose logging disabled)
+                        # Click the circle
+                        await self.page.mouse.click(x, y)
+                        await asyncio.sleep(1.5)
 
-                        # Extract desk code from popup (e.g., "Hoteling Desk 2.24.28")
-                        match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
-                        if match:
-                            desk_code = match.group(1)
-                            # Extracted desk code (verbose logging disabled)
+                        # Check if popup appeared
+                        popup = self.page.locator('td:has-text("Hoteling Desk")').first
 
-                            # Store coordinates for this desk
-                            desk_to_coords[desk_code] = (x, y)
-
-                            # Close popup (Escape doesn't work, need to click X or outside)
-                            await self.close_popup(logger=logger)
-
-                            # Wait for popup to be hidden/detached from DOM
-                            try:
-                                await popup.wait_for(state='hidden', timeout=2000)
-                            except:
-                                pass  # Continue even if wait times out
-                        else:
-                            msg = f"Could not extract desk code from popup text: '{popup_text}'"
-                            # print(f"       → {msg}")
+                        # Wait for popup to be visible (with timeout)
+                        try:
+                            await popup.wait_for(state='visible', timeout=3000)
+                        except Exception as popup_error:
                             if logger:
-                                logger.warning(msg)
+                                logger.warning(f"  Circle {i}: No popup appeared (timeout) - {popup_error}")
+                            continue
 
-                            # Close popup (Escape doesn't work, need to click X or outside)
+                        # Read popup text
+                        try:
+                            popup_text = await popup.text_content()
+                        except Exception as text_error:
+                            if logger:
+                                logger.warning(f"  Circle {i}: Failed to read popup text - {text_error}")
+                            await self.close_popup(logger=logger)
+                            continue
+
+                        if popup_text:
+                            if logger:
+                                logger.info(f"  Circle {i}: Popup text = '{popup_text}'")
+
+                            # Extract desk code from popup (e.g., "Hoteling Desk 2.24.28")
+                            match = re.search(r'(\d+\.\d+\.\d+)', popup_text)
+                            if match:
+                                desk_code = match.group(1)
+
+                                # Check if this is one of the missing desks we need
+                                if desk_code in missing_desks:
+                                    # Found a missing desk! Add to cache if viewport matches
+                                    if logger:
+                                        logger.info(f"  SUCCESS: Found missing desk {desk_code}")
+
+                                    # Update cache file only if we're using cache (viewport matches)
+                                    if use_cache:
+                                        cache.add_desk_position(desk_code, x, y, save=True)
+                                        if logger:
+                                            logger.info(f"  Saved {desk_code} to position cache")
+
+                                    # Add to cached_positions for booking
+                                    cached_positions[desk_code] = (x, y)
+
+                                    # Remove from missing set
+                                    missing_desks.remove(desk_code)
+                                else:
+                                    if logger:
+                                        logger.info(f"  Circle {i}: Found desk {desk_code} (not in missing list)")
+                            else:
+                                if logger:
+                                    logger.warning(f"  Circle {i}: Could not extract desk code from '{popup_text}'")
+
+                            # Close popup
                             await self.close_popup(logger=logger)
 
-                            # Wait for popup to be hidden/detached from DOM
+                            # Wait for popup to be hidden
                             try:
                                 await popup.wait_for(state='hidden', timeout=2000)
                             except:
-                                pass  # Continue even if wait times out
+                                pass
+                        else:
+                            if logger:
+                                logger.warning(f"  Circle {i}: Popup appeared but text was empty")
 
-                except Exception as e:
-                    msg = f"Error checking circle {i}: {e}"
-                    # print(f"       {msg}")
-                    if logger:
-                        logger.error(msg)
-                    continue
+                    except Exception as e:
+                        if logger:
+                            logger.error(f"Circle {i}: Error - {e}")
+                        continue
 
-        # Only log count, not list (reduces log spam)
+            # Log if we still have missing desks after checking unknown circles
+            if missing_desks and logger:
+                logger.warning(f"Could not locate {len(missing_desks)} desk(s): {sorted(missing_desks)}")
+                logger.warning(f"These desks may not exist on the floor or position cache is outdated")
+        else:
+            # All needed desks are already cached
+            if logger and cached_positions:
+                logger.info(f"All {len(cached_positions)} needed desk(s) found in cache")
+
+        # Use cached positions as our desk_to_coords mapping
+        desk_to_coords = cached_positions
+
+        # Summary logging
         if logger:
-            logger.info(f"CV Detection - Identified {len(desk_to_coords)} desks from blue circles")
+            logger.info(f"=== CV Detection Summary ===")
+            logger.info(f"Total desks identified: {len(desk_to_coords)}")
+            logger.info(f"Available desks from SpaceIQ: {available_desks}")
+            logger.info(f"Identified desk positions: {list(desk_to_coords.keys())}")
 
-        # Only log counts, not lists (reduces log spam)
-        if logger:
-            logger.info(f"PHASE 2 - Checking {len(available_desks)} available desks against {len(desk_to_coords)} detected desks")
+            # Check for matches
+            matches = set(available_desks) & set(desk_to_coords.keys())
+            if matches:
+                logger.info(f"Matching desks found: {sorted(matches)}")
+            else:
+                logger.warning(f"WARNING: No matching desks found!")
+                logger.warning(f"SpaceIQ says these are available: {available_desks}")
+                logger.warning(f"But we could only identify: {list(desk_to_coords.keys())}")
+                logger.warning(f"Possible causes:")
+                logger.warning(f"  1. Desks don't exist on floor (wrong prefix)")
+                logger.warning(f"  2. Position cache is outdated - run 'Remap Desks' tool")
+                logger.warning(f"  3. Popup extraction failed during CV detection")
 
         # PHASE 2: Booking - Iterate through available_desks in PRIORITY ORDER
         for desk_code in available_desks:
@@ -584,9 +723,14 @@ class SpaceIQBookingPage(BasePage):
                 # Desk not detected by CV, skip silently
                 continue
 
-        # No matches found
+        # No matches found - explain the issue clearly
         if logger:
-            logger.error(f"No overlap between {len(available_desks)} available and {len(desk_to_coords)} detected desks")
+            logger.error(f"=== BOOKING FAILED ===")
+            logger.error(f"None of the available desks could be booked")
+            logger.error(f"Available from SpaceIQ: {available_desks}")
+            logger.error(f"Positions identified: {list(desk_to_coords.keys())}")
+            logger.error(f"")
+            logger.error(f"Action required: Run the 'Remap Desks' tool to update position cache")
         return None
 
     async def book_desk_via_api(self, desk_code: str, date_str: str, logger=None) -> bool:

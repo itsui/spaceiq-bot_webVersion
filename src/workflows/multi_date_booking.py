@@ -35,13 +35,12 @@ class MultiDateBookingWorkflow:
     3. Continue until all dates are booked
     """
 
-    def __init__(self, refresh_interval: int = 30, max_attempts_per_date: int = 10, polling_mode: bool = False, headless: bool = False, continuous_loop: bool = False, skip_validation: bool = False):
+    def __init__(self, refresh_interval: int = 30, max_attempts_per_date: int = 10, polling_mode: bool = False, headless: bool = False, continuous_loop: bool = False):
         self.config_path = Path(__file__).parent.parent.parent / "config" / "booking_config.json"
         self.refresh_interval = refresh_interval
         self.max_attempts_per_date = max_attempts_per_date
         self.polling_mode = polling_mode
         self.headless = headless
-        self.skip_validation = skip_validation
 
         # Headless mode should always loop continuously (production mode)
         # This ensures it checks existing bookings and keeps trying unbooked dates
@@ -142,16 +141,6 @@ class MultiDateBookingWorkflow:
             Dictionary mapping date -> success status
         """
 
-        # Validate user against Supabase whitelist (if configured)
-        from src.utils.supabase_validator import validate_user_from_auth_file
-
-        is_valid, error_msg = validate_user_from_auth_file(skip_validation=self.skip_validation)
-
-        if not is_valid:
-            print(f"\n[ERROR] {error_msg}")
-            print("\nBot startup cancelled due to validation failure.")
-            return {}
-
         # Load config
         config = self.load_config()
         building = config.get("building", "LC")
@@ -217,8 +206,9 @@ class MultiDateBookingWorkflow:
         ui.initialize_dates(dates_to_try)
 
         try:
-            # Validate session first (especially important for headless mode)
-            if self.headless:
+            # Validate session first (ONLY if using legacy cookies, NOT persistent profiles)
+            if self.headless and self.session_manager.user_id is None:
+                # Legacy cookie-based authentication requires validation
                 # print("[INFO] Headless mode requested - validating session first...")
                 from src.auth.session_validator import validate_and_refresh_session, SessionExpiredException
 
@@ -240,6 +230,9 @@ class MultiDateBookingWorkflow:
                     error_msg = "Session expired. Please re-authenticate via the web interface."
                     print(f"\n[ERROR] {error_msg}")
                     raise Exception(error_msg) from e
+            elif self.session_manager.user_id is not None:
+                # Using persistent profile - no need to validate old cookies
+                pass
 
             # Initialize session
             context = await self.session_manager.initialize()
@@ -380,9 +373,25 @@ class MultiDateBookingWorkflow:
                 if not dates_to_try_now:
                     if existing_bookings:
                         if self.continuous_loop:
-                            wait_time = self.get_progressive_wait_time(round_num)
-                            ui.set_operation("All dates already booked", "Waiting for cancellations...")
-                            ui.start_countdown(wait_time, "Waiting for next round")
+                            # DYNAMIC WAIT TIME: Be more aggressive around midnight when new dates become available!
+                            current_time = datetime.now()
+
+                            # Check if we're in the "golden hour" after midnight
+                            if current_time.hour == 0:  # Between 12:00 AM and 12:59 AM
+                                wait_time = 60  # Check every 1 minute - very aggressive!
+                                ui.set_operation("Midnight Special!", "Hunting for new dates that become available at midnight!")
+                            elif current_time.hour <= 2:  # Between 1:00 AM and 2:59 AM
+                                wait_time = 120  # Check every 2 minutes
+                                ui.set_operation("Early Morning", "Checking frequently for new dates...")
+                            elif current_time.hour <= 6:  # Between 3:00 AM and 6:59 AM
+                                wait_time = 180  # Check every 3 minutes
+                                ui.set_operation("Pre-Dawn", "Checking for new dates...")
+                            else:
+                                # Normal daytime - use progressive wait time
+                                wait_time = self.get_progressive_wait_time(round_num)
+                                ui.set_operation("All dates already booked", "Waiting for cancellations...")
+
+                            ui.start_countdown(wait_time, "Checking for new dates...")
 
                             # Countdown loop
                             for _ in range(wait_time):
@@ -545,7 +554,50 @@ class MultiDateBookingWorkflow:
             await booking_page.click_update_button()
             await booking_page.wait_for_floor_map_to_load()
             ui.log_activity(f"  Waiting for SVG to render...")
-            await asyncio.sleep(7)  # Wait for SVG to render
+
+            # Smart wait: Ensure map finishes rendering before proceeding
+            from src.vision.desk_detector import DeskDetector
+            detector = DeskDetector()
+            max_wait_time = 15  # Maximum 15 seconds total
+            wait_interval = 3   # Check every 3 seconds
+            total_waited = 0
+            circles_detected = 0
+            prev_circle_count = -1
+
+            while total_waited < max_wait_time:
+                await asyncio.sleep(wait_interval)
+                total_waited += wait_interval
+
+                # Take a test screenshot to check circle count
+                await booking_page.capture_screenshot("floor_map_loaded")
+                screenshot_files = sorted(
+                    booking_page.screenshots_dir.glob("floor_map_loaded_*.png"),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True
+                )
+
+                if screenshot_files:
+                    circles = detector.find_blue_circles(str(screenshot_files[0]), debug=False)
+                    circles_detected = len(circles)
+
+                    # Map is loaded when circle count stabilizes (doesn't change between checks)
+                    if prev_circle_count == circles_detected:
+                        # Circle count stable - map is ready
+                        self.logger.info(f"Map ready: {circles_detected} available desk(s) detected")
+                        break
+                    else:
+                        # Still changing - keep waiting
+                        prev_circle_count = circles_detected
+                        if total_waited < max_wait_time:
+                            self.logger.info(f"Map rendering: {circles_detected} desk(s) visible (waiting for stable count)")
+
+            # Log final circle count without warning (low count is normal on busy days)
+            if circles_detected == 0:
+                ui.log_activity(f"  No available desks detected on map")
+                self.logger.warning(f"Map shows 0 available desks - map may not be loaded or all desks are booked")
+            else:
+                ui.log_activity(f"  Detected {circles_detected} available desk(s) on map")
+                self.logger.info(f"Map shows {circles_detected} available desk(s)")
 
             # Step 7: Check available desks
             ui.log_activity(f"  Checking available {desk_prefix}.* desks...")
@@ -616,7 +668,6 @@ async def run_multi_date_booking(
     polling_mode: bool = False,
     headless: bool = False,
     continuous_loop: bool = False,
-    skip_validation: bool = False,
     config: Dict = None,
     web_logger = None,
     status_callback = None
@@ -633,7 +684,6 @@ async def run_multi_date_booking(
         polling_mode: If True, keeps trying all dates until at least one is booked (default: False)
         headless: If True, runs browser in headless mode (default: False)
         continuous_loop: If True, keeps trying all dates indefinitely (default: False)
-        skip_validation: If True, skips Supabase user validation (for testing) (default: False)
         config: Optional configuration dictionary (for web mode)
         web_logger: Optional web logger instance (for web mode)
         status_callback: Optional async callback for status updates (for web mode)
@@ -661,7 +711,6 @@ async def run_multi_date_booking(
         polling_mode=polling_mode,
         headless=headless,
         continuous_loop=continuous_loop,
-        skip_validation=skip_validation,
         config=config,
         web_logger=web_logger,
         status_callback=status_callback
@@ -714,7 +763,6 @@ async def run_multi_date_booking_web_mode(
     web_logger,
     headless: bool = True,
     continuous_loop: bool = True,
-    skip_validation: bool = False,
     app_context=None,
     user_id: int = None
 ) -> Dict[str, bool]:
@@ -726,7 +774,6 @@ async def run_multi_date_booking_web_mode(
         web_logger: Web logger instance for structured logging
         headless: If True, runs browser in headless mode
         continuous_loop: If True, keeps trying all dates indefinitely
-        skip_validation: If True, skips Supabase user validation
         app_context: Flask app context for database access
         user_id: User ID for reloading config dynamically
 
@@ -760,6 +807,7 @@ async def run_multi_date_booking_web_mode(
     weekdays_to_book = booking_days_config.get("weekdays", [2, 3])
     blacklist_dates = config.get("blacklist_dates", [])
     existing_dates = config.get("dates_to_try", [])
+    auto_ignore_uk_holidays = config.get("auto_ignore_uk_holidays", True)
 
     # Always use the date calculator - it preserves manual dates and adds auto-generated ones
     from src.utils.date_calculator import calculate_booking_dates
@@ -769,7 +817,8 @@ async def run_multi_date_booking_web_mode(
         weekdays=weekdays_to_book,
         blacklist_dates=blacklist_dates,
         existing_dates=existing_dates,
-        today=None  # Uses today
+        today=None,  # Uses today
+        auto_ignore_uk_holidays=auto_ignore_uk_holidays
     )
 
     config["dates_to_try"] = final_dates
@@ -806,19 +855,12 @@ async def run_multi_date_booking_web_mode(
                         final_dates = config.get("dates_to_try", [])
                         bot_config.set_dates_to_try(final_dates)
                         db.session.commit()
-                        web_logger.info(f"Updated {len(final_dates)} dates in database for user {user_id}")
                 finally:
                     app_context.pop()  # Pop the app context
             else:
                 web_logger.warning("No app context provided - skipping database update")
     except Exception as e:
         web_logger.warning(f"Could not update dates in database: {e}")
-
-    # Validate user against Supabase whitelist (if configured)
-    is_valid, error_msg = validate_user_from_auth_file(skip_validation=skip_validation)
-    if not is_valid:
-        web_logger.error(f"Validation failed: {error_msg}")
-        return {"error": error_msg, "success": False}
 
     # Extract configuration
     building = config.get("building", "LC")
@@ -850,11 +892,17 @@ async def run_multi_date_booking_web_mode(
     web_logger.info(f"Found {len(dates_to_try)} dates to try")
 
     results = {}
-    session_manager = SessionManager(headless=headless, auth_file=config.get('auth_file'))
+    # Use persistent profile if user_id provided (RECOMMENDED - cookies persist!)
+    session_manager = SessionManager(
+        headless=headless,
+        auth_file=config.get('auth_file'),
+        user_id=user_id  # Pass user_id for persistent profile
+    )
 
     try:
-        # Validate session for headless mode
-        if headless:
+        # Validate session for headless mode (ONLY if using legacy cookies, NOT persistent profiles)
+        if headless and user_id is None:
+            # Legacy cookie-based authentication requires validation
             web_logger.info("Validating session for headless mode...")
             from src.auth.session_validator import validate_and_refresh_session, SessionExpiredException
 
@@ -874,6 +922,9 @@ async def run_multi_date_booking_web_mode(
                 error_msg = "Session expired. Please re-authenticate via the web interface."
                 web_logger.error(error_msg)
                 raise Exception(error_msg) from e
+        elif user_id is not None:
+            # Using persistent profile - no need to validate old cookies
+            pass
 
         # Initialize session
         context = await session_manager.initialize()
@@ -895,15 +946,13 @@ async def run_multi_date_booking_web_mode(
             if app_context and user_id and round_num > 1:
                 try:
                     with app_context:
-                        from models import BotConfig
+                        from models import BotConfig, db
                         bot_config = BotConfig.query.filter_by(user_id=user_id).first()
                         if bot_config:
-                            # Update config from database
-                            config['dates_to_try'] = bot_config.get_dates_to_try()
+                            # Update config from database (excluding dates which are recalculated fresh each round)
                             config['blacklist_dates'] = bot_config.get_blacklist_dates()
                             config['booking_days'] = bot_config.get_booking_days()
                             config['wait_times'] = bot_config.get_wait_times()
-                            web_logger.info(f"Reloaded config from database: {len(config['dates_to_try'])} dates")
                 except Exception as e:
                     web_logger.warning(f"Failed to reload config: {e}")
 
@@ -933,13 +982,49 @@ async def run_multi_date_booking_web_mode(
             except Exception as e:
                 web_logger.warning(f"Error checking existing bookings: {e}")
 
-            # Use dates from config (which includes manual dates and respects blacklist)
-            # Filter out already booked dates and past dates
+            # CRITICAL: Always recalculate dates first BEFORE checking if we have dates to try
+            # This ensures we pick up new dates as days pass (e.g., at midnight when new Wed/Thu become available)
             today_now = datetime.now().date()
             current_time = datetime.now()
 
+            # RECALCULATE fresh dates from calendar for the next 29 days from TODAY
+            # This prevents the "All dates already booked" deadlock when new dates should become available
+            booking_days_config = config.get("booking_days", {})
+            weekdays_to_book = booking_days_config.get("weekdays", [2, 3])  # Wed=2, Thu=3
+            blacklist_dates = config.get("blacklist_dates", [])
+            auto_ignore_uk_holidays = config.get("auto_ignore_uk_holidays", True)
+
+            # Load existing dates from database to preserve manually added dates
+            existing_dates_to_preserve = []
+            if app_context and user_id:
+                try:
+                    with app_context:
+                        from models import BotConfig
+                        bot_config = BotConfig.query.filter_by(user_id=user_id).first()
+                        if bot_config:
+                            existing_dates_to_preserve = bot_config.get_dates_to_try()
+                except Exception as e:
+                    web_logger.warning(f"Failed to load existing dates from database: {e}")
+
+            # Use the date calculator to get fresh dates (preserves manual dates)
+            from src.utils.date_calculator import calculate_booking_dates
+            recalculated_dates = calculate_booking_dates(
+                weekdays=weekdays_to_book,
+                blacklist_dates=blacklist_dates,
+                existing_dates=existing_dates_to_preserve,  # Preserve manual dates
+                today=None,  # Uses current date
+                auto_ignore_uk_holidays=auto_ignore_uk_holidays
+            )
+
+            date_word = "date" if len(recalculated_dates) == 1 else "dates"
+            if recalculated_dates:
+                web_logger.info(f"Found {len(recalculated_dates)} {date_word} to book (up to {recalculated_dates[0]})")
+            else:
+                web_logger.info(f"No dates to book at this time")
+
+            # Now filter the recalculated dates based on existing bookings and timing
             dates_to_try_now = []
-            for date_str in config.get("dates_to_try", []):
+            for date_str in recalculated_dates:
                 try:
                     date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
 
@@ -968,14 +1053,58 @@ async def run_multi_date_booking_web_mode(
                     web_logger.warning(f"Invalid date format: {date_str}")
                     continue
 
-            # Dates are already sorted in config (furthest first), so maintain that order
-            web_logger.info(f"Dates to try this round: {len(dates_to_try_now)}")
+            # Dates are already sorted (furthest first), so maintain that order
+            date_word = "date" if len(dates_to_try_now) == 1 else "dates"
+            web_logger.info(f"Attempting {len(dates_to_try_now)} {date_word} this round")
+
+            # Update config and database with the fresh recalculated dates
+            config['dates_to_try'] = recalculated_dates
+            try:
+                if app_context and user_id:
+                    with app_context:
+                        from models import BotConfig, db
+                        bot_config = BotConfig.query.filter_by(user_id=user_id).first()
+                        if bot_config:
+                            bot_config.set_dates_to_try(recalculated_dates)
+                            db.session.commit()
+            except Exception as e:
+                web_logger.warning(f"Failed to update dates in database: {e}")
 
             if not dates_to_try_now:
                 if existing_bookings and continuous_loop:
-                    wait_time = 300  # 5 minutes default wait
-                    web_logger.info("All dates already booked, waiting for cancellations...")
-                    await asyncio.sleep(wait_time)
+                    # DYNAMIC WAIT TIME: Be more aggressive around midnight when new dates become available!
+                    current_time = datetime.now()
+
+                    # Check if we're in the "golden hour" after midnight (12:00 AM - 1:00 AM)
+                    # This is when new booking dates typically become available
+                    if current_time.hour == 0:  # Between 12:00 AM and 12:59 AM
+                        wait_time = 60  # Check every 1 minute - very aggressive!
+                        web_logger.info(f"MIDNIGHT SPECIAL! All dates booked, but it's {current_time.strftime('%H:%M')} - checking every {wait_time}s for new dates!")
+                    elif current_time.hour <= 2:  # Between 1:00 AM and 2:59 AM - still be aggressive
+                        wait_time = 120  # Check every 2 minutes
+                        web_logger.info(f"EARLY MORNING! All dates booked, checking every {wait_time}s for new dates...")
+                    elif current_time.hour <= 6:  # Between 3:00 AM and 6:59 AM - moderate checking
+                        wait_time = 180  # Check every 3 minutes
+                        web_logger.info(f"PRE-DAWN: All dates booked, checking every {wait_time}s...")
+                    else:
+                        # Normal daytime - use user's configured wait time
+                        wait_time = calculate_wait_time_from_config(round_num, config)
+                        web_logger.info(f"DAYTIME: All dates already booked, waiting {wait_time}s for cancellations...")
+
+                    # Special countdown for midnight hunting
+                    if current_time.hour == 0:
+                        web_logger.info(f"HUNTING for new dates that become available at midnight!")
+
+                    # Show progress during wait
+                    for remaining in range(wait_time, 0, -10):
+                        if remaining >= 10:
+                            await asyncio.sleep(10)
+                            if current_time.hour == 0 and remaining % 30 == 0:  # Extra logging during midnight hour
+                                web_logger.debug(f"Still waiting... {remaining}s until next date check")
+                        else:
+                            await asyncio.sleep(remaining)
+                            break
+
                     round_num += 1
                     continue
                 else:
@@ -1104,9 +1233,11 @@ async def _try_booking_date_web_mode(
 
         # Check available desks
         web_logger.info(f"Checking available {desk_prefix}.* desks...")
+        locked_desks = config.get('locked_desks', []) if config else []
         available_desks = await booking_page.get_available_desks_from_sidebar(
             desk_prefix=desk_prefix,
-            logger=web_logger
+            logger=web_logger,
+            locked_desks=locked_desks
         )
 
         if not available_desks:

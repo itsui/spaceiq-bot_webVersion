@@ -20,6 +20,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    debug_mode = db.Column(db.Boolean, default=False)  # Run auth in visible browser for debugging
 
     # Relationships
     spaceiq_session = db.relationship('SpaceIQSession', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -79,6 +80,13 @@ class BotConfig(db.Model):
     # Supports individual dates and ranges: ["2025-12-25", "2025-01-01:2025-01-07"]
     blacklist_dates = db.Column(db.Text, nullable=False, default='[]')
 
+    # Locked/permanent desks - desks that are not bookable (stored as JSON array)
+    # Example: ["2.24.11", "2.24.13", "2.07.51"]
+    locked_desks = db.Column(db.Text, nullable=False, default='[]')
+
+    # Auto-ignore UK bank holidays (boolean)
+    auto_ignore_uk_holidays = db.Column(db.Boolean, default=True)
+
     # Wait times (stored as JSON)
     wait_times = db.Column(db.Text, nullable=False, default='{}')
 
@@ -119,6 +127,14 @@ class BotConfig(db.Model):
         """Set blacklist dates from list"""
         self.blacklist_dates = json.dumps(dates)
 
+    def get_locked_desks(self):
+        """Get locked desks as list"""
+        return json.loads(self.locked_desks)
+
+    def set_locked_desks(self, desks):
+        """Set locked desks from list"""
+        self.locked_desks = json.dumps(desks)
+
     def get_wait_times(self):
         """Get wait times as dict"""
         if self.wait_times:
@@ -150,6 +166,8 @@ class BotConfig(db.Model):
             'dates_to_try': self.get_dates_to_try(),
             'booking_days': self.get_booking_days(),
             'blacklist_dates': self.get_blacklist_dates(),
+            'locked_desks': self.get_locked_desks(),
+            'auto_ignore_uk_holidays': self.auto_ignore_uk_holidays,
             'wait_times': self.get_wait_times(),
             'browser_restart': self.get_browser_restart()
         }

@@ -161,26 +161,88 @@
                             <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top"
                                title="These dates will be ignored by the auto-generate option and won't be included in generated dates."></i>
                         </label>
+
+                        <!-- Auto-Ignore UK Bank Holidays -->
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="auto-ignore-uk-holidays" checked>
+                            <label class="form-check-label" for="auto-ignore-uk-holidays">
+                                <i class="bi bi-calendar-event"></i> Automatically ignore UK bank holidays
+                                <small class="text-muted d-block">When enabled, UK public holidays will be automatically excluded from booking</small>
+                            </label>
+                        </div>
+
+                        <!-- Single Date Picker -->
                         <div class="input-group mb-2">
-                            <input type="text" class="form-control" id="new-blacklist"
-                                   placeholder="YYYY-MM-DD or YYYY-MM-DD:YYYY-MM-DD">
-                            <button type="button" class="btn btn-outline-danger" onclick="addBlacklistDate()">
-                                <i class="bi bi-ban"></i> Add to Ignore List
+                            <input type="date" class="form-control" id="new-blacklist-date"
+                                   title="Select a single date to ignore">
+                            <button type="button" class="btn btn-outline-danger" onclick="addBlacklistDateFromPicker()">
+                                <i class="bi bi-ban"></i> Add Single Date
                             </button>
                         </div>
+
+                        <!-- Date Range Input with Calendar Pickers -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-5">
+                                <label for="blacklist-start-date" class="form-label small">From</label>
+                                <input type="date" class="form-control" id="blacklist-start-date"
+                                       onchange="document.getElementById('blacklist-end-date').min = this.value">
+                            </div>
+                            <div class="col-md-5">
+                                <label for="blacklist-end-date" class="form-label small">To</label>
+                                <input type="date" class="form-control" id="blacklist-end-date">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-danger w-100" onclick="addBlacklistRange()">
+                                    <i class="bi bi-calendar-range"></i> Add
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                        <small class="text-muted">Dates and ranges to ignore during auto-generation</small>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllBlacklistDates()" id="clear-blacklist-btn" style="display: none;">
-                            <i class="bi bi-trash3"></i> Clear All
-                        </button>
-                    </div>
-                    <div id="blacklist-list" class="border rounded p-2 mb-2" style="min-height: 80px; max-height: 150px; overflow-y: auto;">
-                        <!-- Ignore dates will be listed here -->
-                    </div>
+                            <small class="text-muted">Dates and ranges to ignore during auto-generation</small>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllBlacklistDates()" id="clear-blacklist-btn" style="display: none;">
+                                <i class="bi bi-trash3"></i> Clear All
+                            </button>
+                        </div>
+                        <div id="blacklist-list" class="border rounded p-2 mb-2" style="min-height: 80px; max-height: 150px; overflow-y: auto;">
+                            <!-- Ignore dates will be listed here -->
+                        </div>
                         <small class="text-muted d-block">
                             <i class="bi bi-info-circle"></i>
-                            Add single dates (2025-12-25) or ranges (2025-12-24:2025-12-31).
-                            These dates will be excluded from auto-generation. Works with both auto-generated and manual dates.
+                            Add single dates or ranges. These will be excluded from auto-generation and manual additions.
+                        </small>
+                    </div>
+
+                    <!-- Locked/Permanent Desks -->
+                    <div class="mb-4">
+                        <label class="form-label">
+                            Permanent Desks (Not Bookable)
+                            <i class="bi bi-info-circle" data-bs-toggle="tooltip" data-bs-placement="top"
+                               title="Desks that are permanently assigned or not available for booking (e.g., 2.24.11, 2.07.51)"></i>
+                        </label>
+
+                        <!-- Desk Code Input -->
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" id="new-locked-desk"
+                                   placeholder="Desk code (e.g., 2.24.11)"
+                                   title="Enter desk code like 2.24.11">
+                            <button type="button" class="btn btn-outline-warning" onclick="addLockedDesk()">
+                                <i class="bi bi-lock"></i> Add Desk
+                            </button>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted">Desks that cannot be booked (permanently assigned)</small>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllLockedDesks()" id="clear-locked-btn" style="display: none;">
+                                <i class="bi bi-trash3"></i> Clear All
+                            </button>
+                        </div>
+                        <div id="locked-desks-list" class="border rounded p-2 mb-2" style="min-height: 80px; max-height: 150px; overflow-y: auto;">
+                            <!-- Locked desks will be listed here -->
+                        </div>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-info-circle"></i>
+                            These desks will be ignored during booking attempts. Use the remap tool to automatically detect permanent desks.
                         </small>
                     </div>
 
@@ -677,6 +739,8 @@
                 weekdays: bookingDays
             },
             blacklist_dates: getCurrentBlacklist(),
+            locked_desks: getCurrentLockedDesks(),
+            auto_ignore_uk_holidays: document.getElementById('auto-ignore-uk-holidays').checked,
             wait_times: collectWaitTimes(),
             browser_restart: {
                 restart_every_n_rounds: parseInt(document.getElementById('browser-restart').value)
@@ -806,6 +870,15 @@
 
             // Blacklist dates
             updateBlacklistList(currentConfig.blacklist_dates || []);
+
+            // Locked desks
+            updateLockedDesksList(currentConfig.locked_desks || []);
+
+            // Auto-ignore UK bank holidays (default to true if not set)
+            const autoIgnoreHolidays = currentConfig.auto_ignore_uk_holidays !== undefined
+                ? currentConfig.auto_ignore_uk_holidays
+                : true;
+            document.getElementById('auto-ignore-uk-holidays').checked = autoIgnoreHolidays;
 
             // Booking days
             const bookingDays = currentConfig.booking_days?.weekdays || [2, 3];
@@ -1018,7 +1091,7 @@
     }
 
     // Generate dates for next 29 days (reads weekdays from UI - no need to save first!)
-    function generateWeekDates() {
+    async function generateWeekDates() {
         // Read selected weekdays directly from UI checkboxes
         const selectedDays = [];
         for (let i = 0; i < 7; i++) {
@@ -1048,6 +1121,20 @@
 
         // Get ignore dates and parse them
         const ignoreDates = parseIgnoreDates(getCurrentBlacklist());
+
+        // Add UK bank holidays if checkbox is enabled
+        const autoIgnoreUkHolidays = document.getElementById('auto-ignore-uk-holidays').checked;
+        if (autoIgnoreUkHolidays) {
+            try {
+                const response = await apiCall('/api/uk-holidays');
+                if (response.success && response.holidays) {
+                    response.holidays.forEach(holiday => ignoreDates.add(holiday));
+                }
+            } catch (error) {
+                console.warn('Failed to fetch UK holidays:', error);
+                // Continue without UK holidays rather than failing completely
+            }
+        }
 
         // Generate auto dates for next 29 days
         const autoDates = new Set();
@@ -1085,6 +1172,7 @@
         let message = `Generated ${autoCount} dates for selected weekdays`;
         if (manualCount > 0) message += `, kept ${manualCount} manual`;
         if (ignoredCount > 0) message += `, excluded ${ignoredCount} ignored`;
+        if (autoIgnoreUkHolidays) message += ' (UK holidays excluded)';
 
         showToast(message, 'success');
     }
@@ -1374,6 +1462,65 @@
         showToast('Blacklist entry added', 'success');
     }
 
+    // Add single date from date picker
+    function addBlacklistDateFromPicker() {
+        const input = document.getElementById('new-blacklist-date');
+        const dateValue = input.value;
+
+        if (!dateValue) {
+            showToast('Please select a date', 'warning');
+            return;
+        }
+
+        const currentBlacklist = getCurrentBlacklist();
+        if (currentBlacklist.includes(dateValue)) {
+            showToast('Date already in ignore list', 'warning');
+            return;
+        }
+
+        currentBlacklist.push(dateValue);
+        updateBlacklistList(currentBlacklist);
+
+        input.value = '';
+        showToast('Date added to ignore list', 'success');
+    }
+
+    // Add date range
+    function addBlacklistRange() {
+        const startInput = document.getElementById('blacklist-start-date');
+        const endInput = document.getElementById('blacklist-end-date');
+        const startStr = startInput.value.trim();
+        const endStr = endInput.value.trim();
+
+        if (!startStr || !endStr) {
+            showToast('Please select both start and end dates', 'warning');
+            return;
+        }
+
+        // Validate that end date is after start date
+        const start = new Date(startStr);
+        const end = new Date(endStr);
+        const rangeValue = `${startStr}:${endStr}`;
+
+        if (end < start) {
+            showToast('End date must be after start date', 'error');
+            return;
+        }
+
+        const currentBlacklist = getCurrentBlacklist();
+        if (currentBlacklist.includes(rangeValue)) {
+            showToast('Range already in ignore list', 'warning');
+            return;
+        }
+
+        currentBlacklist.push(rangeValue);
+        updateBlacklistList(currentBlacklist);
+
+        startInput.value = '';
+        endInput.value = '';
+        showToast('Date range added to ignore list', 'success');
+    }
+
     function removeBlacklistDate(entry) {
         const currentBlacklist = getCurrentBlacklist();
         const index = currentBlacklist.indexOf(entry);
@@ -1388,6 +1535,84 @@
         if (confirm('Are you sure you want to clear all ignore dates? This will remove all holidays and vacations from the list.')) {
             updateBlacklistList([]);
             showToast('All ignore dates cleared', 'success');
+        }
+    }
+
+    // ===== Locked Desks Management =====
+    function addLockedDesk() {
+        const input = document.getElementById('new-locked-desk');
+        const deskCode = input.value.trim();
+
+        if (!deskCode) {
+            showToast('Please enter a desk code', 'warning');
+            return;
+        }
+
+        // Validate desk code format (e.g., 2.24.11 or 2.07.51)
+        const deskPattern = /^\d+\.\d+\.\d+$/;
+        if (!deskPattern.test(deskCode)) {
+            showToast('Invalid desk code format. Use format like 2.24.11', 'error');
+            return;
+        }
+
+        const currentLockedDesks = getCurrentLockedDesks();
+        if (currentLockedDesks.includes(deskCode)) {
+            showToast('Desk already in permanent desks list', 'warning');
+            return;
+        }
+
+        currentLockedDesks.push(deskCode);
+        updateLockedDesksList(currentLockedDesks);
+
+        input.value = '';
+        showToast('Permanent desk added', 'success');
+    }
+
+    function removeLockedDesk(deskCode) {
+        const currentLockedDesks = getCurrentLockedDesks();
+        const index = currentLockedDesks.indexOf(deskCode);
+        if (index > -1) {
+            currentLockedDesks.splice(index, 1);
+            updateLockedDesksList(currentLockedDesks);
+            showToast('Desk removed from permanent list', 'success');
+        }
+    }
+
+    function getCurrentLockedDesks() {
+        const container = document.getElementById('locked-desks-list');
+        const entries = container.querySelectorAll('[data-locked-desk]');
+        return Array.from(entries).map(el => el.getAttribute('data-locked-desk'));
+    }
+
+    function updateLockedDesksList(lockedDesks) {
+        const container = document.getElementById('locked-desks-list');
+        const clearBtn = document.getElementById('clear-locked-btn');
+
+        if (lockedDesks.length === 0) {
+            container.innerHTML = '<p class="text-muted small mb-0">No permanent desks</p>';
+            clearBtn.style.display = 'none';
+        } else {
+            // Sort desks for better display
+            const sortedDesks = [...lockedDesks].sort();
+            container.innerHTML = sortedDesks.map(deskCode => {
+                return `
+                    <div class="d-flex justify-content-between align-items-center mb-1 p-1" data-locked-desk="${deskCode}">
+                        <span><i class="bi bi-lock"></i> ${deskCode}</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLockedDesk('${deskCode}')"
+                                title="Remove from permanent desks">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            clearBtn.style.display = 'inline-block';
+        }
+    }
+
+    function clearAllLockedDesks() {
+        if (confirm('Are you sure you want to clear all permanent desks?')) {
+            updateLockedDesksList([]);
+            showToast('Permanent desks list cleared', 'success');
         }
     }
 
@@ -1468,6 +1693,8 @@
                     weekdays: bookingDays
                 },
                 blacklist_dates: getCurrentBlacklist(),
+                locked_desks: getCurrentLockedDesks(),
+                auto_ignore_uk_holidays: document.getElementById('auto-ignore-uk-holidays').checked,
                 wait_times: collectWaitTimes(),
                 browser_restart: {
                     restart_every_n_rounds: parseInt(document.getElementById('browser-restart').value)

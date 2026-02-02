@@ -1,28 +1,31 @@
 """
 Authentication File Encryption Utility
 
-Transparently encrypts/decrypts auth.json using Fernet encryption.
-Key is derived from: username + machine ID + hardcoded salt
+Encrypts/decrypts auth.json using Fernet encryption with PBKDF2 key derivation.
+Key is derived from: username + machine ID + salt using PBKDF2-HMAC-SHA256
 
-This provides basic protection against:
-- Casual file copying between machines (won't decrypt on different machine)
+This provides protection against:
 - Session file tampering (integrity check)
 - Plain-text credential exposure
+- Brute force attacks (via PBKDF2 iterations)
 
-Note: This is security through obscurity and not meant for high-security scenarios.
+Note: For higher security, consider using a secrets management system.
 """
 
 import json
 import uuid
-import hashlib
+import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import base64
 
 
-# Hardcoded salt for key derivation
-ENCRYPTION_SALT = "spaceiq_bot_v1_secure"
+# Salt for key derivation - should be stored securely in production
+# For development, we use environment variable or fallback
+ENCRYPTION_SALT = os.getenv('ENCRYPTION_SALT', 'spaceiq_bot_v1_secure').encode()
 
 
 def get_machine_id() -> str:
@@ -94,24 +97,35 @@ def extract_username_from_session(session_data: Dict[str, Any]) -> Optional[str]
 
 def derive_encryption_key(username: str) -> bytes:
     """
-    Derive Fernet encryption key from username + machine ID + salt.
+    Derive Fernet encryption key from username + machine ID using PBKDF2.
+
+    Uses PBKDF2-HMAC-SHA256 with 100,000 iterations for secure key derivation.
+    This makes brute force attacks computationally expensive.
 
     Args:
         username: User's email/username
 
     Returns:
-        32-byte Fernet-compatible key
+        32-byte Fernet-compatible base64-encoded key
     """
     machine_id = get_machine_id()
 
-    # Combine all components
-    key_material = f"{username}:{machine_id}:{ENCRYPTION_SALT}"
+    # Combine username and machine ID as password material
+    password = f"{username}:{machine_id}".encode()
 
-    # Hash to get consistent 32-byte key
-    key_hash = hashlib.sha256(key_material.encode()).digest()
+    # Use PBKDF2 with 100,000 iterations (recommended minimum)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,  # 32 bytes for Fernet
+        salt=ENCRYPTION_SALT,
+        iterations=100000,  # OWASP recommended minimum
+    )
 
-    # Fernet requires base64-encoded 32-byte key
-    return base64.urlsafe_b64encode(key_hash)
+    # Derive the key
+    key = kdf.derive(password)
+
+    # Fernet requires base64-encoded key
+    return base64.urlsafe_b64encode(key)
 
 
 def encrypt_auth_file(file_path: Path, username: str) -> bool:

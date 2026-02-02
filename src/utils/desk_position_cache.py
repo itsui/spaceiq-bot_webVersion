@@ -137,6 +137,54 @@ class DeskPositionCache:
             cached_viewport.get("height") == current_viewport.get("height")
         )
 
+    def add_desk_position(self, desk_code: str, x: int, y: int, save: bool = True) -> bool:
+        """
+        Add or update a desk position in the cache.
+
+        Args:
+            desk_code: Desk code (e.g., "2.24.65")
+            x: X coordinate
+            y: Y coordinate
+            save: Whether to save to file immediately (default: True)
+
+        Returns:
+            True if successfully added/updated, False otherwise
+        """
+        if not self.cache:
+            return False
+
+        # Update in-memory cache
+        self.desk_positions[desk_code] = {"x": x, "y": y}
+        self.cache["desk_positions"][desk_code] = {"x": x, "y": y}
+        self.cache["total_desks"] = len(self.desk_positions)
+
+        # Save to file if requested
+        if save:
+            return self.save()
+
+        return True
+
+    def save(self) -> bool:
+        """
+        Save cache to file.
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
+        if not self.cache:
+            return False
+
+        try:
+            from datetime import datetime
+            self.cache["last_updated"] = datetime.utcnow().isoformat()
+
+            with open(self.cache_file, 'w') as f:
+                json.dump(self.cache, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"[WARNING] Failed to save desk position cache: {e}")
+            return False
+
 
 # Global cache instance
 _cache = None

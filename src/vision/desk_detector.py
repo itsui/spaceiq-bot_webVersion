@@ -60,10 +60,17 @@ class DeskDetector:
                 if M["m00"] != 0:
                     cx = int(M["m10"] / M["m00"])
                     cy = int(M["m01"] / M["m00"])
-                    circles.append((cx, cy))
 
-                    if debug:
-                        cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1)
+                    # IMPORTANT: Filter out UI elements in header/toolbar area
+                    # Real desks are only in the floor map region (y >= 200)
+                    if cy >= 200:
+                        circles.append((cx, cy))
+
+                        if debug:
+                            cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1)
+                    elif debug:
+                        # Mark rejected circles in red
+                        cv2.circle(img, (cx, cy), 5, (0, 0, 255), -1)
 
         # print(f"       Detected {len(circles)} blue circles")
 

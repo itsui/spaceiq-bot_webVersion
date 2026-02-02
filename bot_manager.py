@@ -72,7 +72,15 @@ class BotWorker(threading.Thread):
 
             # Check if session data exists
             if not spaceiq_session.session_data:
-                raise Exception("Session data is empty - please authenticate again")
+                # Mark as invalid and raise error
+                try:
+                    spaceiq_session.is_valid = False
+                    self.app.extensions['sqlalchemy'].session.commit()
+                    logger.warning(f"Marked empty session as invalid for user {self.user_id}")
+                except Exception as db_error:
+                    logger.error(f"Failed to mark empty session as invalid: {db_error}")
+
+                raise Exception("Session data is empty - session marked as invalid. Please authenticate again")
 
             # Decrypt session data
             try:
@@ -111,9 +119,18 @@ class BotWorker(threading.Thread):
 
                 except Exception as decrypt_error:
                     logger.error(f"Failed to decrypt session data for user {self.user_id}: {decrypt_error}")
+
+                    # Mark session as invalid in database to prevent repeated failures
+                    try:
+                        spaceiq_session.is_valid = False
+                        self.app.extensions['sqlalchemy'].session.commit()
+                        logger.warning(f"Marked corrupted session as invalid for user {self.user_id}")
+                    except Exception as db_error:
+                        logger.error(f"Failed to mark session as invalid: {db_error}")
+
                     raise Exception(
                         f"Session decryption failed: {decrypt_error}. "
-                        "Your session may be corrupted or from a different machine. "
+                        "Your session has been marked as invalid. "
                         "Please re-authenticate through the browser stream interface."
                     )
 
@@ -533,7 +550,6 @@ class BotWorker(threading.Thread):
                 web_logger=CallbackLogger(callback),
                 headless=True,
                 continuous_loop=True,  # Keep trying until all dates are booked
-                skip_validation=True,
                 app_context=self.app_context,  # Pass app context for database updates
                 user_id=self.user_id  # Pass user_id to allow config reloading
             )

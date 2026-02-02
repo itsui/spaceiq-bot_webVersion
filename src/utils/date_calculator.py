@@ -5,11 +5,36 @@ Automatically calculates booking dates based on:
 - Selected weekdays (e.g., Tuesday, Wednesday)
 - 29-day booking window
 - Blacklist dates (holidays, vacations)
+- UK bank holidays (optional)
 - Preserves manually added dates
 """
 
 from datetime import datetime, timedelta, date
 from typing import List, Set
+import holidays
+
+
+def get_uk_bank_holidays(start_date: date, end_date: date) -> Set[str]:
+    """
+    Get UK bank holidays between two dates.
+
+    Args:
+        start_date: Start date
+        end_date: End date
+
+    Returns:
+        Set of UK bank holiday date strings in YYYY-MM-DD format
+    """
+    uk_holidays = holidays.country_holidays('GB', years=range(start_date.year, end_date.year + 1))
+
+    holiday_dates = set()
+    current = start_date
+    while current <= end_date:
+        if current in uk_holidays:
+            holiday_dates.add(current.strftime('%Y-%m-%d'))
+        current += timedelta(days=1)
+
+    return holiday_dates
 
 
 def parse_blacklist_dates(blacklist: List[str]) -> Set[str]:
@@ -54,7 +79,8 @@ def calculate_booking_dates(
     weekdays: List[int],
     blacklist_dates: List[str] = None,
     existing_dates: List[str] = None,
-    today: date = None
+    today: date = None,
+    auto_ignore_uk_holidays: bool = False
 ) -> List[str]:
     """
     Calculate booking dates for the next 29 days based on weekdays.
@@ -64,6 +90,7 @@ def calculate_booking_dates(
         blacklist_dates: List of dates to exclude (supports ranges like "2025-01-01:2025-01-07")
         existing_dates: List of manually added dates to preserve
         today: Starting date (defaults to today)
+        auto_ignore_uk_holidays: If True, automatically exclude UK bank holidays
 
     Returns:
         List of date strings in YYYY-MM-DD format, sorted descending (newest first)
@@ -79,6 +106,12 @@ def calculate_booking_dates(
 
     # Parse blacklist (supports ranges)
     blacklisted = parse_blacklist_dates(blacklist_dates)
+
+    # Add UK bank holidays if enabled
+    if auto_ignore_uk_holidays:
+        furthest_date = today + timedelta(days=29)
+        uk_holidays = get_uk_bank_holidays(today, furthest_date)
+        blacklisted.update(uk_holidays)
 
     # Calculate auto-generated dates for next 29 days
     auto_dates = set()
@@ -137,13 +170,17 @@ def update_user_dates(bot_config, preserve_manual: bool = True):
 
     blacklist = bot_config.get_blacklist_dates()
 
+    # Check if UK bank holidays should be auto-ignored
+    auto_ignore_uk_holidays = getattr(bot_config, 'auto_ignore_uk_holidays', True)
+
     existing_dates = bot_config.get_dates_to_try() if preserve_manual else []
 
     # Calculate new dates
     new_dates = calculate_booking_dates(
         weekdays=weekdays,
         blacklist_dates=blacklist,
-        existing_dates=existing_dates
+        existing_dates=existing_dates,
+        auto_ignore_uk_holidays=auto_ignore_uk_holidays
     )
 
     # Update config

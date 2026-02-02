@@ -287,11 +287,72 @@ def migration_003_add_indexes(conn: sqlite3.Connection):
     conn.commit()
     logger.info("✅ Added performance indexes")
 
+def migration_004_add_auto_ignore_uk_holidays(conn: sqlite3.Connection):
+    """
+    Add auto_ignore_uk_holidays column to bot_configs table
+    """
+    try:
+        cursor = conn.cursor()
+
+        # Check if column exists
+        cursor.execute("PRAGMA table_info(bot_configs)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'auto_ignore_uk_holidays' not in columns:
+            logger.info("Adding auto_ignore_uk_holidays column to bot_configs...")
+            cursor.execute("""
+                ALTER TABLE bot_configs
+                ADD COLUMN auto_ignore_uk_holidays BOOLEAN DEFAULT 1
+            """)
+            conn.commit()
+            logger.info("[SUCCESS] Added auto_ignore_uk_holidays column (default: enabled)")
+        else:
+            logger.info("auto_ignore_uk_holidays column already exists")
+
+        conn.commit()
+
+    except Exception as e:
+        logger.error(f"[ERROR] Failed to add auto_ignore_uk_holidays column: {e}")
+        conn.rollback()
+        raise
+
+def migration_005_add_locked_desks(conn: sqlite3.Connection):
+    """
+    Add locked_desks column to bot_configs table
+    """
+    try:
+        cursor = conn.cursor()
+
+        # Check if column exists
+        cursor.execute("PRAGMA table_info(bot_configs)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'locked_desks' not in columns:
+            logger.info("Adding locked_desks column to bot_configs...")
+            cursor.execute("""
+                ALTER TABLE bot_configs
+                ADD COLUMN locked_desks TEXT NOT NULL DEFAULT '[]'
+            """)
+            conn.commit()
+            logger.info("[SUCCESS] Added locked_desks column (default: empty array)")
+        else:
+            logger.info("locked_desks column already exists")
+
+        conn.commit()
+
+    except Exception as e:
+        logger.error(f"[ERROR] Failed to add locked_desks column: {e}")
+        conn.rollback()
+        raise
+
+
 # Migration registry
 MIGRATIONS = [
     ("001_create_basic_tables", migration_001_create_basic_tables),
     ("002_add_blacklist_dates", migration_002_add_blacklist_dates),
     ("003_add_indexes", migration_003_add_indexes),
+    ("004_add_auto_ignore_uk_holidays", migration_004_add_auto_ignore_uk_holidays),
+    ("005_add_locked_desks", migration_005_add_locked_desks),
 ]
 
 def run_all_migrations(db_path: str = "instance/spaceiq_multiuser.db") -> bool:

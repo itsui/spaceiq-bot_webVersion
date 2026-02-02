@@ -7,6 +7,7 @@ Provides colored, cleaner output for the booking bot.
 from colorama import Fore, Back, Style, init
 import sys
 import os
+import subprocess
 
 # Initialize colorama for Windows compatibility
 init(autoreset=True)
@@ -14,11 +15,14 @@ init(autoreset=True)
 # Set UTF-8 encoding for Windows console
 if os.name == 'nt':  # Windows
     try:
-        # Try to set console to UTF-8
-        os.system('chcp 65001 >nul 2>&1')
+        # Try to set console to UTF-8 using subprocess (safer than os.system)
+        subprocess.run(['chcp', '65001'],
+                      capture_output=True,
+                      check=False,
+                      shell=False)
         sys.stdout.reconfigure(encoding='utf-8')
-    except:
-        pass
+    except Exception:
+        pass  # Silently ignore if chcp fails
 
 
 class PrettyOutput:

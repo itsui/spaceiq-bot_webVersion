@@ -1,7 +1,27 @@
+# Core dependencies
 playwright==1.48.0
 python-dotenv==1.0.1
+
+# Image processing
 opencv-python==4.10.0.84
 pyautogui==0.9.54
 pillow==10.4.0
-rich>=13.7.0
-flask>=3.0.0
+
+# Terminal output
+rich==13.7.0
+colorama==0.4.6
+
+# Flask web framework
+Flask==3.0.3
+Werkzeug==3.0.3
+
+# Flask extensions
+Flask-Login==0.6.3
+Flask-Limiter==3.5.0
+Flask-SQLAlchemy==3.1.1
+
+# Database
+SQLAlchemy==2.0.30
+
+# Cryptography for session encryption
+cryptography==42.0.5

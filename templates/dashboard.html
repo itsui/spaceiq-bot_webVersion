@@ -25,7 +25,13 @@
                             Checking authentication status...
                         </p>
                     </div>
-                    <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check me-2">
+                            <input class="form-check-input" type="checkbox" id="force-reauth-checkbox" checked>
+                            <label class="form-check-label" for="force-reauth-checkbox" style="font-size: 0.875rem;">
+                                Force
+                            </label>
+                        </div>
                         <button id="auth-btn" class="btn btn-success" onclick="startAutoAuth()" disabled>
                             <i class="bi bi-rocket-takeoff"></i> Fast Authentication
                         </button>
@@ -118,7 +124,7 @@
                         </div>
 
                         <!-- Current Activity -->
-                        <div class="card bg-dark text-white" style="border: 1px solid #ffc107;">
+                        <div class="card bg-dark text-white mb-2" style="border: 1px solid #ffc107;">
                             <div class="card-header bg-transparent border-bottom border-warning p-2">
                                 <small class="text-warning" style="font-family: monospace;">Current Activity</small>
                             </div>
@@ -126,6 +132,20 @@
                                 <div id="current-activity-main" class="text-white-50 mb-1">&gt; Waiting to start</div>
                                 <div id="current-activity-details" class="text-muted small"></div>
                                 <div id="current-activity-countdown" class="text-muted small mt-1"></div>
+                            </div>
+                        </div>
+
+                        <!-- Tools & Settings -->
+                        <div class="card bg-dark text-white" style="border: 1px solid #6c757d;">
+                            <div class="card-header bg-transparent border-bottom p-2" style="border-color: #6c757d !important;">
+                                <small class="text-secondary" style="font-family: monospace;">🛠️ Tools</small>
+                            </div>
+                            <div class="card-body p-2">
+                                <div class="d-grid gap-2">
+                                    <a href="/tools/remap-desks" class="btn btn-sm btn-outline-info">
+                                        <i class="bi bi-map"></i> Remap Desk Positions
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -151,6 +171,9 @@
                                 Auto-scroll
                             </label>
                         </div>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="copyLogs()">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
                         <button class="btn btn-sm btn-outline-secondary" onclick="clearLogs()">
                             <i class="bi bi-trash"></i> Clear
                         </button>
@@ -306,8 +329,15 @@
 
     // Start automated SSO authentication (NEW - recommended)
     async function startAutoAuth() {
-        // Redirect to automated authentication page
-        window.location.href = '/auth/auto';
+        // Check if force re-authentication checkbox is checked
+        const forceReauth = document.getElementById('force-reauth-checkbox').checked;
+
+        // Redirect to automated authentication page (with force parameter if checked)
+        if (forceReauth) {
+            window.location.href = '/auth/auto?force=true';
+        } else {
+            window.location.href = '/auth/auto';
+        }
     }
 
     // Load configuration summary
@@ -450,18 +480,23 @@
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
 
+                // Hide error alert when running
+                document.getElementById('error-alert').classList.add('d-none');
+
                 if (!botStartTime && status.started_at) {
                     botStartTime = new Date(status.started_at);
                 }
             } else if (status.status === 'session_expired') {
                 indicator.className = 'status-indicator status-error';
-                statusText.textContent = 'SESSION EXPIRED';
+                statusText.textContent = 'SESSION EXPIRED - Redirecting to authentication...';
                 statusText.className = 'fw-bold text-warning';
                 startBtn.disabled = false;
                 stopBtn.disabled = true;
 
-                // Auto-redirect immediately to re-auth page
-                window.location.href = '/auth/browser-stream';
+                // Auto-redirect immediately to fast auth page
+                setTimeout(() => {
+                    window.location.href = '/auth/auto';
+                }, 2000);
 
                 botStartTime = null;
                 currentCountdown = null;
@@ -670,6 +705,14 @@
             let bookedCount = 0;
             let noSeatsCount = 0;
 
+            // Helper function to get weekday name
+            const getWeekdayName = (dateStr) => {
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                const date = new Date(dateStr + 'T00:00:00');
+                const dayIndex = date.getDay();
+                return days[(dayIndex + 6) % 7]; // Convert Sunday=0 to Sunday=6
+            };
+
             dates.slice(0, 10).forEach(date => {
                 // Check if booked (either in history, recent logs, or existing bookings)
                 const isBooked = booked.has(date) || recentlyBooked.has(date) || existingBookings.has(date);
@@ -698,9 +741,12 @@
                     statusText = '<span class="text-info">PENDING</span>';
                 }
 
+                // Add weekday name before status
+                const weekday = getWeekdayName(date);
+
                 html += `<div class="d-flex justify-content-between mb-1">
                     <span>${statusIcon} ${date}</span>
-                    <span>${statusText}</span>
+                    <span><span class="text-info small">${weekday}</span> ${statusText}</span>
                 </div>`;
             });
 
@@ -834,6 +880,46 @@
     }
 
     // Clear logs
+    function copyLogs() {
+        const logsContainer = document.getElementById('logs-container');
+        const logText = logsContainer.innerText;
+
+        // Create a temporary textarea to copy from
+        const textarea = document.createElement('textarea');
+        textarea.value = logText;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        try {
+            // Try to copy using execCommand (works on HTTP)
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            if (successful) {
+                // Visual feedback - change button text briefly
+                const copyBtn = event.target.closest('button');
+                const originalHTML = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                copyBtn.classList.remove('btn-outline-primary');
+                copyBtn.classList.add('btn-success');
+
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalHTML;
+                    copyBtn.classList.remove('btn-success');
+                    copyBtn.classList.add('btn-outline-primary');
+                }, 2000);
+            } else {
+                throw new Error('Copy command failed');
+            }
+        } catch (err) {
+            document.body.removeChild(textarea);
+            console.error('Failed to copy logs:', err);
+            alert('Failed to copy logs to clipboard');
+        }
+    }
+
     function clearLogs() {
         document.getElementById('logs-container').innerHTML = `
             <div class="log-entry">

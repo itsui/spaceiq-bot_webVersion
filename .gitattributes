@@ -51,3 +51,6 @@ LICENSE text eol=lf
 *.woff2 binary
 *.ttf binary
 *.eot binary
+
+# Use bd merge for beads JSONL files
+.beads/issues.jsonl merge=beads

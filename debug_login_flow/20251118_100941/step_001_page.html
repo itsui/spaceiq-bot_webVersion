@@ -1,0 +1,2943 @@
+<html lang="en"><head><meta charset="utf-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1.0"><link href="https://fonts.googleapis.com/css?family=Noto+Sans:300,400,500,600,700" rel="stylesheet" type="text/css"><link rel="stylesheet" href="/public/EpturaFlexible/epturaFlexibleStyle.css" type="text/css"><link rel="stylesheet" href="/public/spinner.css" type="text/css"><link rel="stylesheet" href="/public/bootstrap.min.css" type="text/css"><title>Eptura</title><link rel="icon" type="image/png" href="/public/mstile-70x70.png" sizes="72x72"><link rel="icon" type="image/png" href="/public/mstile-144x144.png" sizes="144x144"><link rel="icon" type="image/png" href="/public/android-chrome-192x192.png" sizes="216x216"><style type="text/css">.UnauthenticatedView---container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: white;
+  background-image: url('/public/login_bg.png');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+.UnauthenticatedView---formContainer {
+  position: absolute;
+  top: 0;
+  bottom: 30%;
+  left: 0%;
+  right: 0;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.UnauthenticatedView---formInner {
+  padding: 40px;
+  background-color: white;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+  width: 508px;
+  left: 608px;
+  top: 36px;
+  padding: 28px 34px 29px;
+}
+</style><style type="text/css">/**
+ * React Select
+ * ============
+ * Created by Jed Watson and Joss Mackison for KeystoneJS, http://www.keystonejs.com/
+ * https://twitter.com/jedwatson https://twitter.com/jossmackison https://twitter.com/keystonejs
+ * MIT License: https://github.com/JedWatson/react-select
+*/
+.Select {
+  position: relative;
+}
+.Select input::-webkit-contacts-auto-fill-button,
+.Select input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+}
+.Select input::-ms-clear {
+  display: none !important;
+}
+.Select input::-ms-reveal {
+  display: none !important;
+}
+.Select,
+.Select div,
+.Select input,
+.Select span {
+  box-sizing: border-box;
+}
+.Select.is-disabled .Select-arrow-zone {
+  cursor: default;
+  pointer-events: none;
+  opacity: 0.35;
+}
+.Select.is-disabled > .Select-control {
+  background-color: #f9f9f9;
+}
+.Select.is-disabled > .Select-control:hover {
+  box-shadow: none;
+}
+.Select.is-open > .Select-control {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+  background: #fff;
+  border-color: #b3b3b3 #ccc #d9d9d9;
+}
+.Select.is-open > .Select-control .Select-arrow {
+  top: -2px;
+  border-color: transparent transparent #999;
+  border-width: 0 5px 5px;
+}
+.Select.is-searchable.is-open > .Select-control {
+  cursor: text;
+}
+.Select.is-searchable.is-focused:not(.is-open) > .Select-control {
+  cursor: text;
+}
+.Select.is-focused > .Select-control {
+  background: #fff;
+}
+.Select.is-focused:not(.is-open) > .Select-control {
+  border-color: #007eff;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(0, 126, 255, 0.1);
+  background: #fff;
+}
+.Select.has-value.is-clearable.Select--single > .Select-control .Select-value {
+  padding-right: 42px;
+}
+.Select.has-value.Select--single > .Select-control .Select-value .Select-value-label,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value .Select-value-label {
+  color: #333;
+}
+.Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label {
+  cursor: pointer;
+  text-decoration: none;
+}
+.Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label:hover,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:hover,
+.Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label:focus,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:focus {
+  color: #007eff;
+  outline: none;
+  text-decoration: underline;
+}
+.Select.has-value.Select--single > .Select-control .Select-value a.Select-value-label:focus,
+.Select.has-value.is-pseudo-focused.Select--single > .Select-control .Select-value a.Select-value-label:focus {
+  background: #fff;
+}
+.Select.has-value.is-pseudo-focused .Select-input {
+  opacity: 0;
+}
+.Select.is-open .Select-arrow,
+.Select .Select-arrow-zone:hover > .Select-arrow {
+  border-top-color: #666;
+}
+.Select.Select--rtl {
+  direction: rtl;
+  text-align: right;
+}
+.Select-control {
+  background-color: #fff;
+  border-color: #d9d9d9 #ccc #b3b3b3;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  color: #333;
+  cursor: default;
+  display: table;
+  border-spacing: 0;
+  border-collapse: separate;
+  height: 36px;
+  outline: none;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+.Select-control:hover {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+.Select-control .Select-input:focus {
+  outline: none;
+  background: #fff;
+}
+.Select-placeholder,
+.Select--single > .Select-control .Select-value {
+  bottom: 0;
+  color: #aaa;
+  left: 0;
+  line-height: 34px;
+  padding-left: 10px;
+  padding-right: 10px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.Select-input {
+  height: 34px;
+  padding-left: 10px;
+  padding-right: 10px;
+  vertical-align: middle;
+}
+.Select-input > input {
+  width: 100%;
+  background: none transparent;
+  border: 0 none;
+  box-shadow: none;
+  cursor: default;
+  display: inline-block;
+  font-family: inherit;
+  font-size: inherit;
+  margin: 0;
+  outline: none;
+  line-height: 17px;
+  /* For IE 8 compatibility */
+  padding: 8px 0 12px;
+  /* For IE 8 compatibility */
+  -webkit-appearance: none;
+}
+.is-focused .Select-input > input {
+  cursor: text;
+}
+.has-value.is-pseudo-focused .Select-input {
+  opacity: 0;
+}
+.Select-control:not(.is-searchable) > .Select-input {
+  outline: none;
+}
+.Select-loading-zone {
+  cursor: pointer;
+  display: table-cell;
+  position: relative;
+  text-align: center;
+  vertical-align: middle;
+  width: 16px;
+}
+.Select-loading {
+  -webkit-animation: Select-animation-spin 400ms infinite linear;
+  animation: Select-animation-spin 400ms infinite linear;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  border-right-color: #333;
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+}
+.Select-clear-zone {
+  -webkit-animation: Select-animation-fadeIn 200ms;
+  animation: Select-animation-fadeIn 200ms;
+  color: #999;
+  cursor: pointer;
+  display: table-cell;
+  position: relative;
+  text-align: center;
+  vertical-align: middle;
+  width: 17px;
+}
+.Select-clear-zone:hover {
+  color: #D0021B;
+}
+.Select-clear {
+  display: inline-block;
+  font-size: 18px;
+  line-height: 1;
+}
+.Select--multi .Select-clear-zone {
+  width: 17px;
+}
+.Select-arrow-zone {
+  cursor: pointer;
+  display: table-cell;
+  position: relative;
+  text-align: center;
+  vertical-align: middle;
+  width: 25px;
+  padding-right: 5px;
+}
+.Select--rtl .Select-arrow-zone {
+  padding-right: 0;
+  padding-left: 5px;
+}
+.Select-arrow {
+  border-color: #999 transparent transparent;
+  border-style: solid;
+  border-width: 5px 5px 2.5px;
+  display: inline-block;
+  height: 0;
+  width: 0;
+  position: relative;
+}
+.Select-control > *:last-child {
+  padding-right: 5px;
+}
+.Select--multi .Select-multi-value-wrapper {
+  display: inline-block;
+}
+.Select .Select-aria-only {
+  position: absolute;
+  display: inline-block;
+  height: 1px;
+  width: 1px;
+  margin: -1px;
+  clip: rect(0, 0, 0, 0);
+  overflow: hidden;
+  float: left;
+}
+@-webkit-keyframes Select-animation-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes Select-animation-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.Select-menu-outer {
+  border-bottom-right-radius: 4px;
+  border-bottom-left-radius: 4px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-top-color: #e6e6e6;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+  margin-top: -1px;
+  max-height: 200px;
+  position: absolute;
+  left: 0;
+  top: 100%;
+  width: 100%;
+  z-index: 1;
+  -webkit-overflow-scrolling: touch;
+}
+.Select-menu {
+  max-height: 198px;
+  overflow-y: auto;
+}
+.Select-option {
+  box-sizing: border-box;
+  background-color: #fff;
+  color: #666666;
+  cursor: pointer;
+  display: block;
+  padding: 8px 10px;
+}
+.Select-option:last-child {
+  border-bottom-right-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+.Select-option.is-selected {
+  background-color: #f5faff;
+  /* Fallback color for IE 8 */
+  background-color: rgba(0, 126, 255, 0.04);
+  color: #333;
+}
+.Select-option.is-focused {
+  background-color: #ebf5ff;
+  /* Fallback color for IE 8 */
+  background-color: rgba(0, 126, 255, 0.08);
+  color: #333;
+}
+.Select-option.is-disabled {
+  color: #cccccc;
+  cursor: default;
+}
+.Select-noresults {
+  box-sizing: border-box;
+  color: #999999;
+  cursor: default;
+  display: block;
+  padding: 8px 10px;
+}
+.Select--multi .Select-input {
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 0;
+}
+.Select--multi.Select--rtl .Select-input {
+  margin-left: 0;
+  margin-right: 10px;
+}
+.Select--multi.has-value .Select-input {
+  margin-left: 5px;
+}
+.Select--multi .Select-value {
+  background-color: #ebf5ff;
+  /* Fallback color for IE 8 */
+  background-color: rgba(0, 126, 255, 0.08);
+  border-radius: 2px;
+  border: 1px solid #c2e0ff;
+  /* Fallback color for IE 8 */
+  border: 1px solid rgba(0, 126, 255, 0.24);
+  color: #007eff;
+  display: inline-block;
+  font-size: 0.9em;
+  line-height: 1.4;
+  margin-left: 5px;
+  margin-top: 5px;
+  vertical-align: top;
+}
+.Select--multi .Select-value-icon,
+.Select--multi .Select-value-label {
+  display: inline-block;
+  vertical-align: middle;
+}
+.Select--multi .Select-value-label {
+  border-bottom-right-radius: 2px;
+  border-top-right-radius: 2px;
+  cursor: default;
+  padding: 2px 5px;
+}
+.Select--multi a.Select-value-label {
+  color: #007eff;
+  cursor: pointer;
+  text-decoration: none;
+}
+.Select--multi a.Select-value-label:hover {
+  text-decoration: underline;
+}
+.Select--multi .Select-value-icon {
+  cursor: pointer;
+  border-bottom-left-radius: 2px;
+  border-top-left-radius: 2px;
+  border-right: 1px solid #c2e0ff;
+  /* Fallback color for IE 8 */
+  border-right: 1px solid rgba(0, 126, 255, 0.24);
+  padding: 1px 5px 3px;
+}
+.Select--multi .Select-value-icon:hover,
+.Select--multi .Select-value-icon:focus {
+  background-color: #d8eafd;
+  /* Fallback color for IE 8 */
+  background-color: rgba(0, 113, 230, 0.08);
+  color: #0071e6;
+}
+.Select--multi .Select-value-icon:active {
+  background-color: #c2e0ff;
+  /* Fallback color for IE 8 */
+  background-color: rgba(0, 126, 255, 0.24);
+}
+.Select--multi.Select--rtl .Select-value {
+  margin-left: 0;
+  margin-right: 5px;
+}
+.Select--multi.Select--rtl .Select-value-icon {
+  border-right: none;
+  border-left: 1px solid #c2e0ff;
+  /* Fallback color for IE 8 */
+  border-left: 1px solid rgba(0, 126, 255, 0.24);
+}
+.Select--multi.is-disabled .Select-value {
+  background-color: #fcfcfc;
+  border: 1px solid #e3e3e3;
+  color: #333;
+}
+.Select--multi.is-disabled .Select-value-icon {
+  cursor: not-allowed;
+  border-right: 1px solid #e3e3e3;
+}
+.Select--multi.is-disabled .Select-value-icon:hover,
+.Select--multi.is-disabled .Select-value-icon:focus,
+.Select--multi.is-disabled .Select-value-icon:active {
+  background-color: #fcfcfc;
+}
+@keyframes Select-animation-spin {
+  to {
+    -webkit-transform: rotate(1turn);
+            transform: rotate(1turn);
+  }
+}
+@-webkit-keyframes Select-animation-spin {
+  to {
+    -webkit-transform: rotate(1turn);
+  }
+}
+</style><style type="text/css">.form-control {
+  background-color: transparent;
+  border-radius: 0;
+  border-top-width: 0;
+  border-left-width: 0;
+  border-right-width: 0;
+  border-bottom-width: 1px;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+.form-control:focus,
+.form-control:active {
+  box-shadow: none;
+  outline: none;
+  border-color: #999;
+}
+.is-open > .Select-control {
+  background: transparent;
+}
+.is-focused > .Select-control {
+  box-shadow: none !important;
+  border-color: #999 !important;
+}
+.Select-control {
+  border-radius: 0;
+  border-top-width: 0;
+  border-left-width: 0;
+  border-right-width: 0;
+  border-bottom-width: 1px;
+  background-color: transparent;
+}
+.Select-placeholder,
+.Select-input {
+  color: #999;
+  padding-left: 0;
+  padding-right: 0;
+}
+.Select-value {
+  padding-left: 0 !important;
+}
+.btn {
+  text-transform: uppercase;
+}
+.LoginScreen---remember {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  margin-top: 10px;
+}
+.LoginScreen---remember input {
+  height: -webkit-min-content;
+  height: -moz-min-content;
+  height: min-content;
+  width: -webkit-min-content;
+  width: -moz-min-content;
+  width: min-content;
+  margin: 4px 5px 0 0;
+}
+.LoginScreen---remember label {
+  color: #777;
+  font-weight: 400;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+}
+.LoginScreen---resend {
+  cursor: pointer;
+  color: #777;
+  margin-top: 7px;
+}
+.LoginScreen---actions {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+}
+.LoginScreen---link {
+  display: block;
+  color: #777;
+  font-size: 12px;
+}
+.LoginScreen---link:hover {
+  color: #333;
+}
+.LoginScreen---or {
+  -webkit-transform: translateY(-16px);
+      -ms-transform: translateY(-16px);
+          transform: translateY(-16px);
+  padding: 5px;
+  background-color: #eeeeee;
+  color: #777;
+}
+.LoginScreen---ssoButton {
+  position: relative;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  border-top: 1px solid #ccc;
+  margin-top: 40px;
+}
+.LoginScreen---companyLogo {
+  margin-bottom: 13px;
+}
+.LoginScreen---companyLogo div {
+  margin-left: 47px;
+}
+.LoginScreen---loginContainer {
+  background-color: #eee;
+  padding: 30px 80px 15px;
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+}
+.LoginScreen---ssoContainer {
+  background-color: #eee;
+  padding: 40px 100px;
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+}
+</style><style type="text/css">.SButton---base {
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  color: white;
+  text-transform: uppercase;
+  font-weight: 400;
+  cursor: pointer;
+  border: 1px solid;
+  position: relative;
+}
+.SButton---base.SButton---new:after {
+  z-index: 1;
+  background: white;
+  border-radius: 4px;
+  color: #48ad48;
+  text-transform: uppercase;
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  font-size: 8px;
+  padding: 0px 4px;
+  font-weight: 700;
+}
+.SButton---base[disabled] {
+  cursor: not-allowed;
+  pointer-events: none;
+  color: #777777;
+}
+.SButton---base:focus {
+  outline: none;
+}
+.SButton---default {
+  border-radius: 2px;
+  font-size: 14px;
+  min-width: 100px;
+  padding: 0 20px;
+  height: 35px;
+}
+.SButton---medium {
+  border-radius: 2px;
+  font-size: 14px;
+  min-width: 70px;
+  padding: 0 12px;
+  height: 28px;
+}
+.SButton---small {
+  border-radius: 2px;
+  font-size: 12px;
+  min-width: 60px;
+  height: 22px;
+}
+.SButton---primary {
+  background-color: #13b5b0;
+  border-color: #13b5b0;
+}
+.SButton---primary:hover {
+  background-color: #39d2ce;
+  border-color: #39d2ce;
+}
+.SButton---primary:active {
+  background-color: #68d262;
+  border-color: #68d262;
+}
+.SButton---primary:focus {
+  background-color: #48ad48;
+  border-color: #48ad48;
+}
+.SButton---primary[disabled] {
+  background-color: #bce4e2;
+  border-color: #bce4e2;
+}
+.SButton---secondary {
+  background-color: #636c70;
+  border-color: #636c70;
+}
+.SButton---secondary:hover,
+.SButton---secondary:active,
+.SButton---secondary:focus {
+  background-color: #8e979f;
+  border-color: #8e979f;
+}
+.SButton---secondary[disabled] {
+  background-color: #eaf0f4;
+  border-color: #eaf0f4;
+}
+.SButton---_secondary {
+  background-color: transparent;
+  border-color: #95989a;
+  color: #95989a;
+}
+.SButton---_secondary:hover,
+.SButton---_secondary:active,
+.SButton---_secondary:focus {
+  background-color: transparent;
+}
+.SButton---_secondary[disabled] {
+  opacity: 0.75;
+}
+.SButton---alert {
+  background-color: #cc2153;
+  border-color: #cc2153;
+}
+.SButton---rounded {
+  border-radius: 36px;
+}
+.SButton---new:after {
+  content: 'new';
+}
+</style><style type="text/css">.Switch---switch {
+  -webkit-transition: all 0.1s ease-in-out;
+  transition: all 0.1s ease-in-out;
+  position: relative;
+  background-color: #ccc;
+  cursor: pointer;
+  box-shadow: 0 1px 10px transparent;
+}
+.Switch---small {
+  height: 14px;
+  width: 30.8px;
+  border-radius: 14px;
+}
+.Switch---small .Switch---knob {
+  width: 14px;
+  height: 14px;
+}
+.Switch---small .Switch---label {
+  font-size: 6px;
+}
+.Switch---medium {
+  height: 24px;
+  width: 52.8px;
+  border-radius: 24px;
+}
+.Switch---medium .Switch---knob {
+  height: 24px;
+  width: 24px;
+}
+.Switch---label {
+  position: absolute;
+  left: auto;
+  right: 13%;
+  top: 50%;
+  -webkit-transform: translateY(-50%);
+      -ms-transform: translateY(-50%);
+          transform: translateY(-50%);
+  color: #fff;
+  font-size: 9px;
+}
+.Switch---knob {
+  -webkit-transition: all 0.1s ease-in-out;
+  transition: all 0.1s ease-in-out;
+  -webkit-transform: translateX(0);
+      -ms-transform: translateX(0);
+          transform: translateX(0);
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 1px solid #ddd;
+  border-radius: 100%;
+  background-color: white;
+}
+.Switch---on .Switch---knob {
+  left: 100%;
+  -webkit-transform: translateX(-100%);
+      -ms-transform: translateX(-100%);
+          transform: translateX(-100%);
+}
+.Switch---on.Switch---switch {
+  background-color: #333;
+}
+.Switch---on.Switch---switch .Switch---knob {
+  border-color: #333;
+}
+.Switch---on.Switch---switch .Switch---label {
+  left: 19%;
+  right: auto;
+}
+.Switch---on.Switch---switch.Switch---warning {
+  background-color: orange;
+}
+.Switch---on.Switch---switch.Switch---warning .Switch---knob {
+  border-color: orange;
+}
+.Switch---on.Switch---switch.Switch---success {
+  background-color: #13b5b0;
+}
+.Switch---on.Switch---switch.Switch---success .Switch---knob {
+  border-color: #13b5b0;
+}
+.Switch---on.Switch---switch.Switch---danger {
+  background-color: tomato;
+}
+.Switch---on.Switch---switch.Switch---danger .Switch---knob {
+  border-color: tomato;
+}
+</style><style type="text/css">.HotelingCalendar---container {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+}
+.HotelingCalendar---maxDate {
+  color: #1f252cb3;
+  font-size: 12px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: end;
+      -ms-flex-pack: end;
+          justify-content: flex-end;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+}
+.HotelingCalendar---redDot {
+  width: 8px;
+  height: 8px;
+  background-color: red;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+.HotelingCalendar---picker {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  padding: 20px;
+  position: relative;
+}
+.HotelingCalendar---day,
+.HotelingCalendar---today {
+  display: table-cell;
+  border: none;
+  text-align: center;
+  vertical-align: middle;
+  padding: 7px;
+  font-size: 14px;
+  color: #454E54;
+  cursor: pointer;
+}
+.HotelingCalendar---day:hover:not(.HotelingCalendar---disabled, .HotelingCalendar---outside),
+.HotelingCalendar---today:hover:not(.HotelingCalendar---disabled, .HotelingCalendar---outside) {
+  background-color: #d7dde2;
+}
+.HotelingCalendar---day:active,
+.HotelingCalendar---today:active {
+  outline: none;
+  box-shadow: none;
+}
+.HotelingCalendar---day.highlighted {
+  font-weight: 900;
+  color: black;
+}
+.HotelingCalendar---day.userHighlighted {
+  color: #11b5b0;
+}
+.HotelingCalendar---error {
+  color: #555;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.HotelingCalendar---showDates {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  color: #13B5B0;
+  cursor: pointer;
+}
+.HotelingCalendar---timeWrapper {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.HotelingCalendar---dateGrayTag {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  line-height: 22px;
+  background-color: D8DDE0;
+  margin: 0 8px;
+  white-space: nowrap;
+}
+.HotelingCalendar---toggleSection {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  margin-bottom: 30px;
+}
+.HotelingCalendar---selected {
+  background-color: #13B5B0 !important;
+  color: white !important;
+  outline: none;
+  box-shadow: none;
+}
+.HotelingCalendar---body {
+  display: table-row-group;
+}
+.HotelingCalendar---week {
+  display: table-row;
+  border-top: 10px solid red;
+  border-bottom: 10px solid red;
+}
+.HotelingCalendar---weekdays {
+  display: table-header-group;
+}
+.HotelingCalendar---weekdaysRow {
+  display: table-row;
+}
+.HotelingCalendar---weekday {
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+  color: #8E979F;
+  padding-bottom: 10px;
+}
+.HotelingCalendar---caption {
+  display: table-caption;
+  font-size: 12px;
+  color: #666C71;
+  height: 37px;
+}
+.HotelingCalendar---navBar {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  width: 48px;
+  position: absolute;
+  right: 20px;
+  top: 22px;
+}
+.HotelingCalendar---navButtonPrev {
+  width: 16px;
+  height: 14px;
+  display: block;
+  background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHdpZHRoPSIxNnB4IiBoZWlnaHQ9IjE0cHgiIHZpZXdCb3g9IjAgMCAxNiAxNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj4gICAgICAgIDx0aXRsZT5Hcm91cDwvdGl0bGU+ICAgIDxkZXNjPkNyZWF0ZWQgd2l0aCBTa2V0Y2guPC9kZXNjPiAgICA8ZGVmcz48L2RlZnM+ICAgIDxnIGlkPSJyaWdodC1kcmF3ZXJzLWFjdGlvbi1kcm9wLWRvd24tZ3JheSIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIGZpbGwtcnVsZT0iZXZlbm9kZCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTExOTUuMDAwMDAwLCAtNDQ5LjAwMDAwMCkiPiAgICAgICAgPGcgaWQ9Ikdyb3VwLTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMDcuMDAwMDAwLCA0NDkuMDAwMDAwKSIgZmlsbD0iIzEzQjVCMCI+ICAgICAgICAgICAgPGcgaWQ9Ikdyb3VwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxODguMDAwMDAwLCAwLjAwMDAwMCkiPiAgICAgICAgICAgICAgICA8cG9seWdvbiBpZD0iUGFnZS0xIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0LjUxMDI5NywgNy4wMDAwMDApIHJvdGF0ZSg5MC4wMDAwMDApIHRyYW5zbGF0ZSgtNC41MTAyOTcsIC03LjAwMDAwMCkgIiBwb2ludHM9Ii0yLjQ4OTcwMjYzIDIuNDg5NzAyNjMgNC41MTAyOTczNyAxMS41MTAyOTc0IDExLjUxMDI5NzQgMi40ODk3MDI2MyI+PC9wb2x5Z29uPiAgICAgICAgICAgICAgICA8cmVjdCBpZD0iUmVjdGFuZ2xlLTIiIHg9IjciIHk9IjUiIHdpZHRoPSI5IiBoZWlnaHQ9IjQiPjwvcmVjdD4gICAgICAgICAgICA8L2c+ICAgICAgICA8L2c+ICAgIDwvZz48L3N2Zz4=);
+  background-size: 16px 14px;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+.HotelingCalendar---navButtonNext {
+  width: 16px;
+  height: 14px;
+  display: block;
+  background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIHdpZHRoPSIxNnB4IiBoZWlnaHQ9IjE0cHgiIHZpZXdCb3g9IjAgMCAxNiAxNCIgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj4gICAgICAgIDx0aXRsZT5Hcm91cDwvdGl0bGU+ICAgIDxkZXNjPkNyZWF0ZWQgd2l0aCBTa2V0Y2guPC9kZXNjPiAgICA8ZGVmcz48L2RlZnM+ICAgIDxnIGlkPSJyaWdodC1kcmF3ZXJzLWFjdGlvbi1kcm9wLWRvd24tZ3JheSIgc3Ryb2tlPSJub25lIiBzdHJva2Utd2lkdGg9IjEiIGZpbGw9Im5vbmUiIGZpbGwtcnVsZT0iZXZlbm9kZCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoLTEyMjcuMDAwMDAwLCAtNDQ5LjAwMDAwMCkiPiAgICAgICAgPGcgaWQ9Ikdyb3VwLTIiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwMDcuMDAwMDAwLCA0NDkuMDAwMDAwKSIgZmlsbD0iIzEzQjVCMCI+ICAgICAgICAgICAgPGcgaWQ9Ikdyb3VwIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyMjguMDAwMDAwLCA3LjAwMDAwMCkgcm90YXRlKDE4MC4wMDAwMDApIHRyYW5zbGF0ZSgtMjI4LjAwMDAwMCwgLTcuMDAwMDAwKSB0cmFuc2xhdGUoMjIwLjAwMDAwMCwgMC4wMDAwMDApIj4gICAgICAgICAgICAgICAgPHBvbHlnb24gaWQ9IlBhZ2UtMSIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNC41MTAyOTcsIDcuMDAwMDAwKSByb3RhdGUoOTAuMDAwMDAwKSB0cmFuc2xhdGUoLTQuNTEwMjk3LCAtNy4wMDAwMDApICIgcG9pbnRzPSItMi40ODk3MDI2MyAyLjQ4OTcwMjYzIDQuNTEwMjk3MzcgMTEuNTEwMjk3NCAxMS41MTAyOTc0IDIuNDg5NzAyNjMiPjwvcG9seWdvbj4gICAgICAgICAgICAgICAgPHJlY3QgaWQ9IlJlY3RhbmdsZS0yIiB4PSI3IiB5PSI1IiB3aWR0aD0iOSIgaGVpZ2h0PSI0Ij48L3JlY3Q+ICAgICAgICAgICAgPC9nPiAgICAgICAgPC9nPiAgICA8L2c+PC9zdmc+);
+  background-size: 16px 14px;
+  background-repeat: no-repeat;
+  background-position: center center;
+}
+.HotelingCalendar---month {
+  display: inline-block;
+  width: 230px;
+  table-layout: fixed;
+  margin: 0px 10px;
+  vertical-align: top;
+}
+.HotelingCalendar---disabled,
+.HotelingCalendar---outside {
+  color: gainsboro;
+  cursor: default;
+}
+.HotelingCalendar---outside {
+  background-color: white !important;
+}
+</style><style type="text/css">.BookingTimeSelector---selector {
+  border: 1px solid #999;
+  border-radius: 5px;
+  color: #4d4f5c;
+  font-size: 12px;
+  padding: 2px;
+}
+.BookingTimeSelector---selector option:disabled {
+  color: #999;
+}
+.BookingTimeSelector---numericSelector {
+  border: 1px solid #999 !important;
+  border-radius: 5px !important;
+  color: #4d4f5c !important;
+  font-size: 12px !important;
+  padding: 2px !important;
+  height: 22px;
+}
+</style><style type="text/css">.HotelingDrawer---main {
+  z-index: 8;
+  position: fixed;
+  right: 320px;
+  top: 96px;
+  bottom: 0px;
+  width: 300px;
+  background-color: white;
+  box-shadow: -1px 0 5px rgba(0, 0, 0, 0.3);
+}
+.HotelingDrawer---header {
+  width: 100%;
+  height: 48px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: start;
+      -ms-flex-pack: start;
+          justify-content: flex-start;
+  background-color: #13b5b0;
+  color: white;
+  padding-left: 10px;
+}
+.HotelingDrawer---toggle {
+  -webkit-transition: background-color 0.1s ease-in;
+  transition: background-color 0.1s ease-in;
+  cursor: pointer;
+  position: absolute;
+  right: 1px;
+  top: 4px;
+  width: 40px;
+  height: 40px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-size: 16px;
+  color: white;
+  border-radius: 50%;
+  z-index: 20;
+}
+.HotelingDrawer---placeholder {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  margin: 30px 20px;
+  padding: 25px;
+  height: 240px;
+  width: 240px;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  border-radius: 50%;
+  background-color: #eee;
+  color: grey;
+  font-weight: 300;
+  font-size: 20px;
+  text-align: center;
+  line-height: 1;
+}
+.HotelingDrawer---card {
+  background-color: #F0F4F7;
+  border: 1px solid #D7DDE1;
+  border-left-width: 14px;
+  border-right-width: 0;
+  border-top-width: 0;
+  padding: 10px 13px;
+  margin-bottom: 7px;
+  position: relative;
+  height: 72px;
+}
+.HotelingDrawer---card i.HotelingDrawer---remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: #777;
+}
+.HotelingDrawer---wrapper {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  height: 100%;
+}
+.HotelingDrawer---newBookingcontainer {
+  font-size: 12px;
+  margin: 0 20px;
+  color: #666c71;
+  height: 99px;
+}
+.HotelingDrawer---date {
+  font-size: 12px;
+  color: #666c71;
+  margin: 5px 0;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  min-height: 18px;
+}
+.HotelingDrawer---remove {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  font-size: 12px;
+  color: #13b5b0;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  border-radius: 100%;
+}
+.HotelingDrawer---remove:hover {
+  background: #d7dde2;
+}
+.HotelingDrawer---text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.HotelingDrawer---time {
+  font-size: 12px;
+  color: #454E54;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.HotelingDrawer---time {
+  color: #777;
+}
+.HotelingDrawer---column {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-flex: 1;
+      -ms-flex: 1;
+          flex: 1;
+  min-width: 0;
+}
+.HotelingDrawer---columnNarrow {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  height: 100%;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-flex: 0;
+      -ms-flex: 0 0 81px;
+          flex: 0 0 81px;
+  -webkit-box-pack: end;
+      -ms-flex-pack: end;
+          justify-content: flex-end;
+  -webkit-box-align: end;
+      -ms-flex-align: end;
+          align-items: flex-end;
+}
+.HotelingDrawer---checkedInContainer {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  width: 100%;
+  color: #13b5b0;
+}
+.HotelingDrawer---checkedIn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #13b5b0;
+  margin-right: 5px;
+  white-space: nowrap;
+}
+.HotelingDrawer---noData {
+  height: 105px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-size: 12px;
+  color: #bec4c9;
+}
+</style><style type="text/css">.UITable---table {
+  width: 100%;
+}
+.UITable---table td {
+  position: relative;
+}
+.UITable---sortable {
+  cursor: pointer;
+}
+th.UITable---headerCell {
+  color: #94a0b2;
+  font-size: 0.9em;
+  font-weight: 700;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+th.UITable---headerCell i {
+  margin: 2px 0 0 5px;
+}
+.UITable---headerCellContent {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+}
+.UITable---row {
+  cursor: pointer;
+  border-bottom: 1px solid #ccc;
+  height: 45px;
+  padding: 10px 0;
+  white-space: nowrap;
+}
+.UITable---row:hover {
+  background-color: #f5f6f9;
+}
+.UITable---row.UITable---editRow {
+  background-color: #fcf7e4;
+}
+.UITable---row.UITable---editRow:hover {
+  background-color: #fcf7e4;
+}
+.UITable---headerRow {
+  cursor: pointer;
+  border-bottom: 1px solid #ccc;
+  height: 45px;
+  padding: 10px 0;
+  white-space: nowrap;
+}
+.UITable---cell {
+  font-size: 1.3rem;
+  font-weight: 300;
+  max-width: 250px;
+  padding: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.UITable---cell i {
+  font-size: 1.7rem;
+  margin-right: 5px;
+}
+td.UITable---bold {
+  font-weight: 700;
+}
+.UITable---actions {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.UITable---actions i {
+  margin-right: 0;
+  color: #aaa;
+  cursor: pointer;
+  -webkit-transition: all 200ms ease;
+  transition: all 200ms ease;
+}
+.UITable---actions i:hover {
+  color: #13b5b0;
+}
+.UITable---actions i:disabled:hover {
+  color: default;
+  cursor: default !important;
+}
+.UITable---action {
+  box-sizing: border-box;
+  margin: 0 8px;
+  width: auto;
+}
+.UITable---centered {
+  text-align: center;
+}
+.UITable---disabledIcon {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+}
+</style><style type="text/css">.BookingsModal---modalBody {
+  height: 422px;
+  overflow-y: scroll;
+}
+.BookingsModal---tableDiv {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.BookingsModal---tableDiv i {
+  font-size: 1.7rem;
+  color: #777777;
+  margin-right: 5px;
+}
+.BookingsModal---tableDiv i:hover {
+  color: #337ab7;
+  cursor: pointer;
+}
+.BookingsModal---action {
+  box-sizing: border-box;
+  width: auto;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.BookingsModal---checkInWrapper {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  width: 100%;
+  -webkit-box-pack: start;
+      -ms-flex-pack: start;
+          justify-content: flex-start;
+}
+.BookingsModal---checkedIn {
+  font-weight: bold;
+  color: #13b5b0;
+  margin-right: 5px;
+}
+.BookingsModal---bigPopover {
+  max-width: 400px !important;
+}
+.BookingsModal---bookingTooltip {
+  max-width: 400px;
+  text-align: left;
+}
+</style><style type="text/css">.CheckBox---container {
+  width: 18px;
+  height: 18px;
+  background-color: #f0f4f7;
+  border: solid 1px #ced4d9;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.CheckBox---container:hover .CheckBox---inner {
+  background-color: #39d2ce;
+}
+.CheckBox---container:active .CheckBox---inner {
+  background-color: #68d262;
+}
+.CheckBox---container.CheckBox---checked .CheckBox---inner {
+  width: 10px;
+  height: 10px;
+  background-color: #48ad48;
+}
+.CheckBox---inner {
+  -webkit-transition: all 0.1s ease-in-out;
+  transition: all 0.1s ease-in-out;
+  width: 12px;
+  height: 12px;
+  background-color: #ffffff;
+}
+</style><style type="text/css">.CheckinWithQRcodeModal---middleModal {
+  max-width: 800px;
+}
+.CheckinWithQRcodeModal---footerLeftAlignContent {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: end;
+      -ms-flex-pack: end;
+          justify-content: end;
+}
+.CheckinWithQRcodeModal---qrCodeSection {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  margin-bottom: 25px;
+  padding-top: 10px;
+}
+.CheckinWithQRcodeModal---qrCodeSection svg {
+  fill: #263238;
+}
+</style><style type="text/css">.BPButton---buttonDefault {
+  color: #04c8a5;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: row;
+          flex-direction: row;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding: 10px 16px;
+  border: 1px solid #333333;
+  color: #333333;
+  background: white;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+.BPButton---buttonPrimary {
+  color: white;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: row;
+          flex-direction: row;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  border: none;
+  padding: 10px 16px;
+  background: #04C8A5;
+  border-radius: 4px;
+}
+</style><style type="text/css">.SFormSelect---container {
+  margin-top: 5px;
+  margin-bottom: 10px;
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  position: relative;
+}
+.SFormSelect---input {
+  font-size: 12px;
+  box-sizing: border-box;
+  padding: 0 0 3px;
+  width: 100%;
+  border: none;
+  outline: none;
+  color: #353d42;
+  border-radius: 0;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.SFormSelect---input__simple {
+  border-bottom: none;
+}
+.SFormSelect---input__default {
+  border-bottom: 1px solid #e9eff4;
+}
+.SFormSelect---input__primary {
+  border-bottom: 1px solid #39d2ce;
+}
+.SFormSelect---input__error {
+  border-bottom: 1px solid #cc2153;
+}
+.SFormSelect---input__success {
+  border-bottom: 1px solid #48ad48;
+}
+.SFormSelect---label {
+  color: #95a2ae;
+  font-weight: normal;
+  cursor: text;
+  margin-bottom: 0;
+}
+.SFormSelect---helpText {
+  position: absolute;
+  right: 0;
+  bottom: -17px;
+  text-align: right;
+  font-size: 12px;
+}
+.SFormSelect---helpText__default {
+  color: #b9c2c7;
+}
+.SFormSelect---helpText__primary {
+  color: #39d2ce;
+}
+.SFormSelect---helpText__error {
+  color: #cc2153;
+}
+.SFormSelect---helpText__success {
+  color: #48ad48;
+}
+.SFormInput .Select-placeholder {
+  color: #95a2ae;
+  padding-left: 5px;
+  padding-top: 5px;
+}
+.SFormInput .Select-control {
+  border: none;
+  height: 30px;
+  min-height: auto;
+  padding: 0;
+  font-size: 12px;
+  color: #333 !important;
+  background-color: transparent !important;
+}
+.SFormInput .Select-control:hover {
+  box-shadow: none;
+}
+.SFormInput .Select-control .Select-multi-value-wrapper {
+  max-width: 100%;
+}
+.SFormInput .Select-control .Select-value {
+  display: inline-block;
+  padding-left: 0;
+  padding-top: 0;
+}
+.SFormInput .Select-control .Select-input {
+  height: 25px;
+  padding-left: 0;
+  outline: none !important;
+  box-shadow: none !important;
+  max-width: 100%;
+}
+.SFormInput .Select-control .Select-input > input {
+  height: 30px;
+  padding: 0;
+  max-width: 100%;
+}
+.SFormInput .Select-control .Select-arrow {
+  border-color: #13b5b0 transparent transparent;
+  position: relative;
+  top: 3px;
+}
+.SFormSelect---SelectOption {
+  cursor: pointer;
+  font-size: 12px;
+  height: 45px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding: 0 7px;
+  z-index: 1;
+}
+.SFormSelect---SelectOption:hover {
+  background-color: #ebf1f5;
+}
+.Select-menu {
+  border: 0 !important;
+  outline: none !important;
+}
+.Select-menu-outer {
+  border: 0 !important;
+  outline: none !important;
+  border-radius: 0 0 2px 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.Select--multi .Select-control .Select-multi-value-wrapper {
+  width: 100%;
+}
+.Select--multi .Select-control .Select-placeholder {
+  padding-top: 0;
+  padding-left: 0;
+}
+.Select--multi .Select-control .Select-value {
+  display: -webkit-inline-box;
+  display: -ms-inline-flexbox;
+  display: inline-flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: reverse;
+      -ms-flex-direction: row-reverse;
+          flex-direction: row-reverse;
+  border: none;
+  background-color: #cbd9e2;
+  border-radius: 2px;
+  margin: 5px 5px 0 0;
+}
+.Select--multi .Select-control .Select-value-icon {
+  display: inline-block;
+  font: normal normal normal 14px/1 'Font Awesome 6 Pro';
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: transparent;
+  border: none;
+  font-size: 0;
+  padding: 4px 5px 3px;
+}
+.Select--multi .Select-control .Select-value-icon::before {
+  content: '\F00D';
+  font-size: 12px;
+}
+.Select--multi .Select-control .Select-value-icon:hover {
+  background-color: transparent;
+}
+.Select--multi .Select-control .Select-value-label {
+  margin-right: 12px;
+  font-size: 12px;
+}
+.Select--multi .Select-control .Select-input {
+  margin-top: 5px;
+  max-width: 100%;
+}
+.Select--multi .Select-control .Select-input,
+.Select--multi .Select-control .Select-input > input {
+  padding: 0;
+  height: 20px;
+  max-width: 100%;
+}
+</style><style type="text/css">.SettingsGroup---container {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  background-color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  margin: 15px 25px;
+}
+.SettingsGroup---header {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding: 15px 20px;
+  -webkit-box-flex: 0;
+      -ms-flex: 0 0 60px;
+          flex: 0 0 60px;
+}
+.SettingsGroup---headerTitle {
+  font-size: 18px;
+  color: #4d4f5c;
+  padding: 0 20px;
+}
+.SettingsGroup---headerIcon {
+  width: 25px;
+  height: 25px;
+  font-size: 25px;
+}
+.SettingsGroup---setting {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  background-color: #fafafa;
+  padding: 13px 32px;
+  -webkit-transition: all 0.25s;
+  transition: all 0.25s;
+}
+.SettingsGroup---settingColumn {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  background-color: #fafafa;
+  padding: 13px 32px;
+  -webkit-transition: all 0.25s;
+  transition: all 0.25s;
+}
+.SettingsGroup---borderTop {
+  border-top: 1px solid #F1F1F3;
+}
+.SettingsGroup---settingRow {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-flex: 1;
+      -ms-flex: 1;
+          flex: 1;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+}
+.SettingsGroup---settingWithoutBorderTop {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  background-color: #fafafa;
+  padding: 13px 32px;
+  -webkit-transition: all 0.25s;
+  transition: all 0.25s;
+}
+.SettingsGroup---settingLink:hover {
+  background-color: #f5f5f5;
+  cursor: pointer;
+}
+.SettingsGroup---settingLink:hover .SettingsGroup---settingTitle {
+  text-decoration: underline;
+}
+.SettingsGroup---settingGroup {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+}
+.SettingsGroup---settingGroup:first-child {
+  -webkit-box-flex: 1;
+      -ms-flex: 1;
+          flex: 1;
+}
+.SettingsGroup---settingTitle {
+  font-size: 13px;
+  line-height: 1.25;
+  color: #4d4f5c;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.SettingsGroup---settingTitleGrey {
+  font-size: 13px;
+  line-height: 1.25;
+  color: #43425D;
+  opacity: 0.5;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.SettingsGroup---settingHint,
+.SettingsGroup---settingHintInline {
+  font-size: 11px;
+  line-height: 1.25;
+  color: #43425D;
+  opacity: 0.5;
+}
+.SettingsGroup---settingHintInline {
+  display: inline-block;
+  margin-left: 8px;
+}
+.SettingsGroup---preview {
+  height: 60px;
+  font-size: 16px;
+  color: #e5720d;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  width: 100%;
+  background: #f5f6f9;
+}
+.SettingsGroup---preview img:first-child,
+.SettingsGroup---preview div:first-child {
+  padding-left: 20px;
+}
+.SettingsGroup---preview img,
+.SettingsGroup---preview div {
+  color: #333;
+  font-size: 22;
+  width: auto;
+  margin: 0 10px 0 0;
+  padding-right: 20px;
+  margin-right: 10px;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
+.SettingsGroup---previewDarkBackground {
+  background: #263238;
+  height: 48px;
+  color: #ffffff;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  width: 100%;
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 14px;
+}
+.SettingsGroup---previewDarkBackground img:first-child {
+  padding-left: 14px;
+}
+.SettingsGroup---previewDarkBackground img {
+  height: 30px;
+}
+.SettingsGroup---btnFile {
+  position: relative;
+  overflow: hidden;
+}
+.SettingsGroup---mainGreen {
+  background: #13b5b0;
+  color: #fff;
+}
+.SettingsGroup---mainGreen:hover {
+  background: #1a9692;
+  color: #fff;
+}
+.SettingsGroup---inputFile {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 100%;
+  min-height: 100%;
+  font-size: 100px;
+  text-align: right;
+  filter: alpha(opacity=0);
+  opacity: 0;
+  background: red;
+  cursor: inherit;
+  display: block;
+}
+.SettingsGroup---inputReadonly {
+  background-color: white !important;
+  cursor: text !important;
+}
+.SettingsGroup---editIcon {
+  -ms-flex-item-align: end;
+      align-self: flex-end;
+  font-size: 19px;
+  color: #0eb4af;
+  cursor: pointer;
+  margin-right: 7px;
+  margin-bottom: 2px;
+}
+.SettingsGroup---chips {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  margin-top: 10px;
+}
+.SettingsGroup---errorMessage {
+  color: red;
+  font-size: 12;
+  -webkit-transition: max-height 0.15s ease 0s, opacity 0.15s ease-out 0s;
+  transition: max-height 0.15s ease 0s, opacity 0.15s ease-out 0s;
+}
+.SettingsGroup---previewBoxDark {
+  font-size: 12;
+  color: #ffffff;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.SettingsGroup---previewBoxLight {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.SettingsGroup---companyNameField,
+.SettingsGroup---message,
+.SettingsGroup---confirmation {
+  margin-top: 10;
+  font-size: 16;
+  font-weight: normal;
+  width: 95%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.SettingsGroup---healthMessageField {
+  margin-top: 10;
+  font-size: 16;
+  font-weight: normal;
+  width: 95%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.SettingsGroup---timeWrapper {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  font-size: 13px;
+  width: 210px;
+}
+.SettingsGroup---from {
+  margin-right: 7px;
+}
+.SettingsGroup---to {
+  margin-right: 7px;
+  margin-left: 12px;
+}
+.SettingsGroup---textarea {
+  height: 260px;
+  max-width: 339px;
+  min-width: 339px;
+}
+.SettingsGroup---buttonContainer {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-item-align: end;
+      align-self: flex-end;
+  margin-bottom: 4px;
+  margin-left: 15;
+}
+.settings-dropdown button.dropdown-toggle.btn.btn-default {
+  width: 120px;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+}
+.settings-dropdown button.dropdown-toggle.btn.btn-default span.caret {
+  margin-top: 9px;
+}
+.settings-dropdown .dropdown-menu {
+  min-width: 120px;
+}
+.SettingsGroup---radioWrapper {
+  opacity: 1 !important;
+}
+.SettingsGroup---radioWrapper input[type='radio']:after {
+  width: 15px;
+  height: 15px;
+  top: -1px;
+  left: -1px;
+  position: relative;
+  border-radius: 50%;
+  content: '';
+  display: inline-block;
+  border: 1px solid white;
+  cursor: pointer;
+}
+.SettingsGroup---radioWrapper input[type='radio']:checked:after {
+  background-color: #13b5b0;
+  opacity: 1 !important;
+  cursor: default;
+}
+</style><style type="text/css">.Chip---chip {
+  margin: 0 7px 7px 0;
+  padding: 0 7px;
+  height: 24px;
+  border-radius: 2px;
+  background-color: #eaf0f4;
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  color: #53595e;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
+  word-break: break-all;
+  height: auto;
+  padding: 4px;
+  border-radius: 20px;
+  padding-left: 10px;
+}
+.Chip---image {
+  height: 12px;
+  width: auto;
+  margin-right: 7px;
+}
+.Chip---closeBtn {
+  -webkit-transition: all 0.1s ease-in;
+  transition: all 0.1s ease-in;
+  cursor: pointer;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  margin-left: 5px;
+  color: #53595e;
+}
+.Chip---closeBtn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+.Chip---closeBtn:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+</style><style type="text/css">.Toggle---toggle {
+  -webkit-transition: all 0.1s ease-in-out;
+  transition: all 0.1s ease-in-out;
+  position: relative;
+  background-color: #ccc;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.Toggle---small {
+  height: 14px;
+  width: 49px;
+}
+.Toggle---small .Toggle---knob {
+  width: 24.5px;
+  height: 14px;
+}
+.Toggle---medium {
+  height: 24px;
+  width: 84px;
+}
+.Toggle---medium .Toggle---knob {
+  height: 24px;
+  width: 42px;
+  font-size: 10px;
+  color: #fff;
+}
+.Toggle---knob {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-transition: all 0.1s ease-in-out;
+  transition: all 0.1s ease-in-out;
+  -webkit-transform: translateX(0);
+      -ms-transform: translateX(0);
+          transform: translateX(0);
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  background-color: #13b5b0;
+}
+.Toggle---on .Toggle---knob {
+  left: 100%;
+  -webkit-transform: translateX(-100%);
+      -ms-transform: translateX(-100%);
+          transform: translateX(-100%);
+}
+</style><style type="text/css">.ComponentButton---Buttons {
+  height: 25px;
+  min-width: 120px;
+  border-radius: 12px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.ComponentButton---Buttons:focus {
+  outline: 0;
+}
+.ComponentButton---Buttons:active {
+  outline: 0;
+}
+.ComponentButton---primary {
+  color: #13b5b0;
+  background-color: #ffffff;
+  border: 1px solid #13b5b0;
+}
+.ComponentButton---primary:not(.ComponentButton---disabled):hover {
+  color: #ffffff;
+  background-color: #13b5b0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+}
+.ComponentButton---primary:note(.disabled):active {
+  box-shadow: none;
+}
+.ComponentButton---primary.ComponentButton---highlighted {
+  color: #ffffff;
+  background-color: #13b5b0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+}
+.ComponentButton---default {
+  color: #13b5b0;
+  background-color: transparent;
+  border: 1px solid transparent;
+}
+.ComponentButton---default:hover {
+  color: #ffffff;
+  background-color: #13b5b0;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+}
+.ComponentButton---default:active {
+  box-shadow: none;
+}
+.ComponentButton---secondary {
+  color: #13b5b0;
+  background-color: transparent;
+  border: none;
+}
+.ComponentButton---secondary:hover {
+  color: #ffffff;
+  background-color: #707070;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+}
+.ComponentButton---secondary:active {
+  box-shadow: none;
+}
+.ComponentButton---disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+</style><style type="text/css">.Conflict---conflictModalHeader {
+  height: 50px;
+  width: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding-left: 15px;
+  padding-right: 10px;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  background: #FBCE274D;
+}
+.Conflict---conflictModalHeaderText {
+  font-weight: 500;
+  font-size: 13px;
+  color: #1F252C;
+}
+.Conflict---conflictModalIcon {
+  color: #F68A2A;
+  margin-right: 10px;
+}
+.Conflict---itemContainer {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  height: 32px;
+  background-color: #FAFAFA;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: row;
+          flex-direction: row;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+}
+.Conflict---titleContainer {
+  width: 28%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.Conflict---name {
+  width: 38%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.Conflict---closeButton {
+  cursor: pointer;
+  -webkit-transition: opacity 0.1s ease-in-out;
+  transition: opacity 0.1s ease-in-out;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+}
+.Conflict---closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+.Conflict---avatar {
+  margin-left: 48px;
+  border-radius: 50%;
+  color: #10B4DF;
+  background-color: #F1F3F4;
+  text-transform: capitalize;
+  padding: 4px;
+  margin-right: 3px;
+}
+.Conflict---conflictModalInlineIcon {
+  margin-left: 50px;
+  color: #F68A2A;
+  font-size: 20px;
+  margin-right: 4px;
+}
+</style><style type="text/css">.Toolbar---container {
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+  height: 48px;
+  background-color: #37474f;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  top: 48px;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  position: fixed;
+  z-index: 100;
+  width: 100%;
+}
+.Toolbar---containerNested {
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+  position: fixed;
+  top: 0px;
+  height: 48px;
+  width: 100%;
+  background-color: #fff;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  z-index: 100;
+}
+.Toolbar---containerLeft {
+  -webkit-box-pack: left;
+      -ms-flex-pack: left;
+          justify-content: left;
+}
+.Toolbar---btnContainer {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+}
+.Toolbar---iconContainer {
+  cursor: pointer;
+  height: 48px;
+  width: 48px;
+  color: white;
+  font-size: 26px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  margin-right: 1px;
+}
+.Toolbar---iconContainer:hover {
+  background-color: #5a616b;
+}
+.Toolbar---icon {
+  height: 48px;
+  width: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  position: relative;
+}
+.Toolbar---icon.Toolbar---new:after {
+  content: 'new';
+  z-index: 1;
+  background: white;
+  border-radius: 4px;
+  color: #48ad48;
+  text-transform: uppercase;
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  font-size: 8px;
+  padding: 0 4px;
+  font-weight: 700;
+}
+.Toolbar---filtered {
+  color: #51b149;
+}
+.Toolbar---iconContainer[disabled] {
+  opacity: 0.7;
+  cursor: default;
+}
+.Toolbar---iconContainer[disabled] .Toolbar---icon.Toolbar---new:after {
+  color: #7a7a7a;
+}
+.Toolbar---iconContainer[disabled]:hover {
+  background-color: transparent;
+}
+.Toolbar---navSection {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  color: white;
+  font-size: 16px;
+}
+.Toolbar---new:after {
+  content: 'new';
+  z-index: 1;
+  background: white;
+  border-radius: 4px;
+  color: #48ad48;
+  text-transform: uppercase;
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  font-size: 8px;
+  padding: 0 4px;
+  font-weight: 700;
+}
+@media print {
+  .Toolbar---container {
+    display: none !important;
+  }
+}
+.Toolbar---parentFilterHintContent {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  width: 162;
+  background: #FFFFFF;
+}
+</style><style type="text/css">.WayfinderCard---container {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: start;
+      -ms-flex-align: start;
+          align-items: flex-start;
+}
+.WayfinderCard---details {
+  padding-left: 20px;
+}
+.WayfinderCard---title {
+  font-size: 18px;
+  color: #4d4f5c;
+  word-break: break-all;
+}
+.WayfinderCard---title td {
+  padding-bottom: 10px;
+}
+.WayfinderCard---imgContainer {
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+.WayfinderCard---closeButton {
+  -webkit-transition: background-color 0.1s ease-in;
+  transition: background-color 0.1s ease-in;
+  cursor: pointer;
+  position: fixed;
+  width: 40px;
+  height: 40px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-size: 16px;
+  color: black;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  z-index: 101;
+}
+.WayfinderCard---flexModal {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  width: 630px;
+}
+.WayfinderCard---row {
+  font-size: 12px;
+}
+.WayfinderCard---row td {
+  padding-bottom: 7px;
+  vertical-align: top;
+}
+.WayfinderCard---row > td:first-child {
+  text-transform: uppercase;
+  color: rgba(67, 66, 93, 0.5);
+  text-align: right;
+}
+.WayfinderCard---row > td:last-child {
+  padding-left: 10px;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: bold;
+  word-break: break-all;
+}
+</style><style type="text/css">.SeatableSpaceCard---buttonContainer {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: space-evenly;
+      -ms-flex-pack: space-evenly;
+          justify-content: space-evenly;
+  margin-top: 5px;
+}
+.SeatableSpaceCard---bookingsManagerbutton {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  margin-top: 5px;
+}
+.SeatableSpaceCard---assetsLink {
+  font-size: 13px;
+  line-height: 1.25;
+  color: #13b5b0;
+  font-weight: 700;
+  padding-left: 3px;
+}
+.SeatableSpaceCard---assetsLink:hover {
+  background-color: #f5f5f5;
+  cursor: pointer;
+}
+.SeatableSpaceCard---assetsLink:hover .SeatableSpaceCard---assetsLink {
+  text-decoration: underline;
+}
+.SeatableSpaceCard---assetsModalHeader {
+  height: 46px;
+  width: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding-left: 30px;
+  padding-right: 10px;
+  -webkit-box-pack: justify;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+  background: #F1F4F7;
+}
+.SeatableSpaceCard---assetsModalHeaderText {
+  font-weight: 500;
+  font-size: 15px;
+  color: #7A7C7D;
+}
+.SeatableSpaceCard---assetsModalList {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  padding-left: 15px;
+}
+.SeatableSpaceCard---assetsModalItem {
+  font-size: 12px;
+  line-height: 25px;
+  color: #333333;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.SeatableSpaceCard---closeButton {
+  cursor: pointer;
+  -webkit-transition: opacity 0.1s ease-in-out;
+  transition: opacity 0.1s ease-in-out;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+}
+.SeatableSpaceCard---closeButton:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+.SeatableSpaceCard---createBookingTitle {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  color: #333;
+}
+.SeatableSpaceCard---spaceCode {
+  word-break: break-all;
+}
+.SeatableSpaceCard---note {
+  max-width: 314px;
+  min-width: 200px;
+  width: 100%;
+  max-height: 120px;
+  min-height: 64px;
+  margin-top: 10px;
+}
+.SeatableSpaceCard---noteCharacters {
+  margin-top: 12px;
+  margin-bottom: 20px;
+  font-size: 12px;
+}
+.SeatableSpaceCard---charError {
+  color: red;
+}
+.SeatableSpaceCard---myWorkplaceGroupOuter {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  width: 296px;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -ms-flex-line-pack: center;
+      align-content: center;
+  gap: 8px;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+}
+.SeatableSpaceCard---maxMoreWorkplaceGroup {
+  max-height: 100px;
+  overflow: auto;
+  display: block;
+}
+.SeatableSpaceCard---myWorkplaceGroupChild {
+  margin-top: 8px;
+  display: inline-block;
+  vertical-align: middle;
+  padding: 3px 3%;
+  border-radius: 20px;
+  background: var(--background-background-variant, #EEEFF4);
+}
+.SeatableSpaceCard---workplaceHidden {
+  display: none;
+}
+.SeatableSpaceCard---workplaceGroupButton {
+  margin-top: 8px;
+  vertical-align: middle;
+  padding: 3px 3%;
+  background: white;
+  color: #1B4BC5;
+  border: none;
+  text-transform: none;
+}
+.SeatableSpaceCard---spaceWorkplaceGroupOuter {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  width: 296px;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -ms-flex-line-pack: center;
+      align-content: center;
+  gap: 8px;
+  -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+}
+.SeatableSpaceCard---maxMoreSpaceWorkplaceGroup {
+  max-height: 100px;
+  overflow: auto;
+  padding-top: 15px;
+  display: block;
+}
+.SeatableSpaceCard---spaceWorkplaceGroupChild {
+  margin-top: 8px;
+  display: inline-block;
+  vertical-align: middle;
+  padding: 3px 3%;
+  border-radius: 20px;
+  background: var(--background-background-variant, #EEEFF4);
+}
+.SeatableSpaceCard---workplaceHidden {
+  display: none;
+}
+.SeatableSpaceCard---spaceWorkplaceGroupButton {
+  margin-top: 8px;
+  vertical-align: middle;
+  padding: 3px 3%;
+  background: white;
+  color: #1B4BC5;
+  border: none;
+  text-transform: none;
+}
+</style><style type="text/css">.Link---link {
+  cursor: pointer;
+  font-family: "Eptura Flexible Regular", "Noto Sans", Arial, Helvetica, sans-serif;
+  font-weight: normal;
+  color: #13b5b0;
+}
+.Link---link:hover,
+.Link---link:visited,
+.Link---link:active {
+  text-decoration: none;
+  color: #13b5b0;
+}
+</style><style type="text/css">.Avatar---image {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.05);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+}
+.Avatar---initials {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.05);
+  font-size: 12px;
+  color: #333;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -ms-flex-negative: 0;
+      flex-shrink: 0;
+}
+</style><style type="text/css">.Card---employeeCard {
+  position: relative;
+  cursor: pointer;
+  padding: 9px 12px 9px 0;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  font-size: 16px;
+}
+.Card---employeeCard i {
+  margin-right: 5px;
+}
+.Card---employeeCard:hover {
+  background-color: #eee;
+}
+.Card---employeeCard:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+.Card---active {
+  background-color: #eee;
+}
+.Card---icon {
+  font-size: 50px;
+  color: #51b149;
+  width: 60px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+.Card---icon img {
+  width: 40px;
+}
+.Card---text {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-flex: 1;
+      -ms-flex: 1;
+          flex: 1;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  overflow: hidden;
+}
+.Card---large {
+  color: #333;
+  font-size: 16px;
+}
+.Card---small {
+  font-size: 12px;
+  color: #777;
+}
+.Card---small span {
+  white-space: nowrap;
+}
+.Card---link:hover {
+  cursor: pointer;
+  color: #333;
+  text-decoration: underline;
+}
+.Card---email {
+  color: #25C8A3;
+  font-size: 12px;
+  line-height: 18px;
+}
+.Card---email:hover {
+  color: #25C8A3;
+}
+.Card---emailGray {
+  color: #777;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: left;
+}
+.Card---ellipsis {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.Card---close {
+  -webkit-transition: background-color 0.1s ease-in;
+  transition: background-color 0.1s ease-in;
+  cursor: pointer;
+  position: absolute;
+  right: 1px;
+  top: 4px;
+  width: 40px;
+  height: 40px;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  font-size: 16px;
+  color: black;
+  border-radius: 50%;
+  z-index: 1;
+}
+.Card---close i {
+  margin-right: 0px;
+}
+.Card---close:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+.Card---close:active {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+</style><style type="text/css">.BookedDeskDetailsModal---linkButtons {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  text-decoration: underline;
+  font-size: 12px;
+  line-height: 14px;
+  color: #04C8A5;
+  cursor: pointer;
+}
+.BookedDeskDetailsModal---linkButtons:hover {
+  text-decoration: none;
+  color: #39d2ce;
+}
+.BookedDeskDetailsModal---employeeCard.BookedDeskDetailsModal---employeeCard:hover,
+.BookedDeskDetailsModal---employeeCard.BookedDeskDetailsModal---employeeCard:active {
+  background: none;
+}
+.BookedDeskDetailsModal---title {
+  margin-bottom: 16px;
+}
+.BookedDeskDetailsModal---deskInfo p {
+  color: #94a0b2;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.BookedDeskDetailsModal---deskInfo p span {
+  color: #1F252C;
+}
+.BookedDeskDetailsModal---table {
+  width: calc(99%);
+}
+.BookedDeskDetailsModal---tableWrapper {
+  max-height: 326px;
+  overflow-x: auto;
+}
+.BookedDeskDetailsModal---table th {
+  color: #94a0b2;
+  font-size: 0.9em;
+  font-weight: 700;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.BookedDeskDetailsModal---table th > div {
+  height: 45px;
+}
+.BookedDeskDetailsModal---table th:first-child {
+  border-left: none;
+}
+.BookedDeskDetailsModal---table td {
+  border: 1px solid #B7BCC2;
+}
+</style><style type="text/css">.EmployeeSelector---selectorBox {
+  max-width: 314px;
+}
+.EmployeeSelector---selectorBox label {
+  margin-left: 8px;
+  font-size: 16px;
+}
+.EmployeeSelector---selectorBox .SFormSelect---input.is-focused .Select-placeholder,
+.EmployeeSelector---selectorBox .SFormSelect---input.is-focused .Select-value-label {
+  visibility: hidden;
+}
+.EmployeeSelector---selectorBox .SFormSelect---input__default {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.EmployeeSelector---selectorBox .SFormSelect---container {
+  margin-bottom: 8px;
+}
+.EmployeeSelector---selectorBox .Select-menu-outer {
+  margin-top: 2px;
+}
+.EmployeeSelector---selectorBox .Select-menu-outer .Card---text .Card---large {
+  font-size: 14px;
+}
+.EmployeeSelector---selectorBox .Select-control {
+  border: 1px solid #898E97;
+  box-sizing: border-box;
+  border-radius: 8px !important;
+  height: 44px;
+  padding-right: 11px;
+}
+.EmployeeSelector---selectorBox .Select-control .Select-clear-zone {
+  font-size: 16px;
+  font-family: "Font Awesome 6 Pro";
+  font-weight: 900;
+  line-height: 1;
+  padding-right: 22px;
+}
+.EmployeeSelector---selectorBox .Select-control .Select-clear-zone:before {
+  content: "\F057";
+}
+.EmployeeSelector---selectorBox .Select-control .Select-clear-zone .Select-clear {
+  display: none;
+}
+.EmployeeSelector---selectorBox .Select-control .Select-value {
+  margin-left: 10px;
+  font-size: 16px;
+  padding-top: 4px;
+}
+.EmployeeSelector---selectorBox .Select-control .Select-placeholder {
+  color: #777;
+  font-weight: 400;
+  font-size: 16px;
+  padding: 0 30px 0 16px;
+  line-height: 44px;
+}
+.EmployeeSelector---selectorBox .Select-control .Select-input {
+  height: 44px;
+}
+.EmployeeSelector---selectorBox .Select-control .Select-input > input {
+  height: 44px;
+  padding-left: 16px;
+  width: 100% !important;
+}
+.EmployeeSelector---SelectOption {
+  background-color: #B9C2C7;
+  height: 20px;
+  font-size: 10px;
+  color: #fff;
+  cursor: default;
+}
+</style><script type="text/javascript" async="" src="https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js"></script><script type="text/javascript" src="https://cdn.segment.com/next-integrations/integrations/vendor/commons.59560acdd69ed701c941.js.gz" async="" status="loaded"></script><script type="text/javascript" src="https://cdn.segment.com/next-integrations/integrations/mixpanel/3.2.1/mixpanel.dynamic.js.gz" async="" status="loaded"></script></head><body><script type="text/javascript" async="" src="https://cdn.segment.com/analytics.js/v1/aBKsOeoccO8CbneQd2E5MRGWYWI7H94v/analytics.min.js"></script><script type="text/javascript">__DEV__ = false;
+self.fetch = null;</script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/fetch/1.0.0/fetch.min.js"></script><script type="text/javascript">window._loginError = "";</script><script type="text/javascript">window.sentry_dsn = "https://b6ab057e0aae485e867013a071d1fa97@o167730.ingest.sentry.io/5538623";</script><script type="text/javascript">window.apolloLocation = "https://apollo.spaceiq.com";</script><script type="text/javascript">window.graphqlEndpoint = "https://api.spaceiq.com";
+</script><script>!function(){var analytics=window.analytics=window.analytics||[];if(!analytics.initialize)if(analytics.invoked)window.console&&console.error&&console.error("Segment snippet included twice.");else{analytics.invoked=!0;analytics.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","reset","group","track","ready","alias","page","once","off","on"];analytics.factory=function(t){return function(){var e=Array.prototype.slice.call(arguments);e.unshift(t);analytics.push(e);return analytics}};for(var t=0;t<analytics.methods.length;t++){var e=analytics.methods[t];analytics[e]=analytics.factory(e)}analytics.load=function(t){var e=document.createElement("script");e.type="text/javascript";e.async=!0;e.src=("https:"===document.location.protocol?"https://":"http://")+"cdn.segment.com/analytics.js/v1/"+t+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(e,n)};analytics.SNIPPET_VERSION="3.1.0";
+analytics.load("aBKsOeoccO8CbneQd2E5MRGWYWI7H94v");
+analytics.page()
+}}();
+</script><div id="app"><div class="UnauthenticatedView---container"><div class="UnauthenticatedView---formContainer"><div class="UnauthenticatedView---formInner"><div class="LoginScreen---loginContainer"><div class="LoginScreen---companyLogo"><img alt="" height="40" src="/public/logo-spaceIQ-endorsement.svg"></div><div style="height: 243px;"><form><div class="form-group"><input placeholder="Email" type="email" id="email" class="form-control" value="" style=""></div><div class="form-group"><input placeholder="Password" type="password" id="password" class="form-control" value="" style=""></div><div class="LoginScreen---actions"><button id="submit" type="submit" disabled="" class="btn btn-success">Login</button><div><a class="LoginScreen---link" href="/invite">Sign up</a><a class="LoginScreen---link" href="/forgot">Forgot your password?</a></div></div><div class="LoginScreen---ssoButton"><div class="LoginScreen---or">OR</div><button id="submit_sso" type="button" class="btn btn-default" style="width: 100%; border: none; border-radius: 4px; text-transform: inherit; font-weight: 500;">Login with SSO</button></div></form></div></div></div></div></div></div><script src="/assets/guest.js"></script><script src="https://archibus-serraview.uservoice.com/logout.js"></script></body></html>

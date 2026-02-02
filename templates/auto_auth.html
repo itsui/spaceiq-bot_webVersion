@@ -29,12 +29,18 @@
 
                             <div class="form-group mb-3">
                                 <label for="password">Password</label>
-                                <input type="password" class="form-control" id="password"
-                                       placeholder="Your password" required>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password"
+                                           placeholder="Your password" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassword"
+                                            style="border-color: #ced4da;">
+                                        <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <button type="submit" class="btn btn-primary btn-block" id="startBtn">
-                                <i class="fas fa-rocket"></i> Start Authentication
+                                <i class="bi bi-rocket-takeoff"></i> Start Authentication
                             </button>
                         </form>
                     </div>
@@ -45,6 +51,9 @@
                             <span class="sr-only">Processing...</span>
                         </div>
                         <p class="text-muted" id="statusText">Starting authentication...</p>
+                        <div id="progressSteps" class="text-left mt-3" style="max-width: 400px; margin: 0 auto;">
+                            <small id="step1" class="d-block text-muted">• Starting authentication...</small>
+                        </div>
                     </div>
 
                     <!-- Step 3: MFA Number Display -->
@@ -67,7 +76,7 @@
                     <!-- Step 4: Success -->
                     <div id="successDiv" style="display: none;" class="text-center">
                         <div class="text-success mb-3">
-                            <i class="fas fa-check-circle" style="font-size: 64px;"></i>
+                            <i class="bi bi-check-circle-fill" style="font-size: 64px;"></i>
                         </div>
                         <h4 class="text-success">Authentication Successful!</h4>
                         <p class="text-muted">Redirecting to dashboard...</p>
@@ -87,7 +96,7 @@
 
             <div class="text-center mt-3">
                 <a href="{{ url_for('dashboard') }}" class="btn btn-link">
-                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    <i class="bi bi-arrow-left"></i> Back to Dashboard
                 </a>
             </div>
         </div>
@@ -95,7 +104,94 @@
 </div>
 
 <script>
+// Password visibility toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordField = document.getElementById('password');
+    const toggleIcon = document.getElementById('togglePasswordIcon');
+
+    togglePassword.addEventListener('click', function() {
+        // Toggle password visibility
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+
+        // Toggle icon
+        if (type === 'text') {
+            toggleIcon.classList.remove('bi-eye');
+            toggleIcon.classList.add('bi-eye-slash');
+        } else {
+            toggleIcon.classList.remove('bi-eye-slash');
+            toggleIcon.classList.add('bi-eye');
+        }
+    });
+
+    // Check if force parameter is present (skip auth check if true)
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceReauth = urlParams.get('force') === 'true';
+
+    if (!forceReauth) {
+        // Only check existing auth if not forcing re-authentication
+        checkExistingAuth();
+    }
+});
+
+async function checkExistingAuth() {
+    try {
+        const response = await fetch('/api/spaceiq/auth/status');
+        const data = await response.json();
+
+        // Accept if valid OR partial (database session exists, even without profile directory)
+        if (data.authenticated && (data.status === 'valid' || data.status === 'partial')) {
+            // Already authenticated - show options
+            document.getElementById('credentialsForm').style.display = 'none';
+            document.getElementById('processingDiv').style.display = 'none';
+            document.getElementById('mfaDiv').style.display = 'none';
+            document.getElementById('successDiv').style.display = 'block';
+
+            document.querySelector('#successDiv h4').textContent = 'Already Authenticated!';
+
+            // Check if there's a return_to parameter
+            const returnTo = urlParams.get('return_to');
+
+            document.querySelector('#successDiv p').innerHTML = `
+                Returning...<br>
+                <small>
+                    <a href="/auth/auto?force=true${returnTo ? '&return_to=' + encodeURIComponent(returnTo) : ''}" class="text-white text-decoration-underline">
+                        Force Re-authenticate
+                    </a>
+                </small>
+            `;
+
+            setTimeout(() => {
+                if (returnTo) {
+                    window.location.href = returnTo;
+                } else {
+                    window.location.href = '{{ url_for('dashboard') }}';
+                }
+            }, 2500);
+        }
+    } catch (error) {
+        console.log('No existing auth or error checking:', error);
+        // Continue with normal auth flow
+    }
+}
+
 let pollInterval = null;
+let progressStepCount = 1;
+
+function addProgressStep(message) {
+    const stepsDiv = document.getElementById('progressSteps');
+    progressStepCount++;
+    const step = document.createElement('small');
+    step.id = `step${progressStepCount}`;
+    step.className = 'd-block text-success';
+    step.innerHTML = `✓ ${message}`;
+    stepsDiv.appendChild(step);
+}
+
+function updateStatus(message) {
+    document.getElementById('statusText').textContent = message;
+}
 
 document.getElementById('authForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -107,6 +203,31 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
     document.getElementById('credentialsForm').style.display = 'none';
     document.getElementById('processingDiv').style.display = 'block';
 
+    // Simulate progress updates (since backend doesn't send them in real-time)
+    setTimeout(() => {
+        addProgressStep('Navigating to SpaceIQ login page');
+        updateStatus('Navigating to login...');
+    }, 500);
+
+    setTimeout(() => {
+        addProgressStep('Clicking SSO button');
+        updateStatus('Initializing SSO...');
+    }, 1500);
+
+    setTimeout(() => {
+        addProgressStep('Entering email');
+        updateStatus('Submitting email...');
+    }, 3000);
+
+    setTimeout(() => {
+        addProgressStep('Entering password');
+        updateStatus('Verifying credentials...');
+    }, 5000);
+
+    setTimeout(() => {
+        updateStatus('Checking authentication status...');
+    }, 7000);
+
     try {
         const response = await fetch('/api/auth/auto-start', {
             method: 'POST',
@@ -117,11 +238,19 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
         const data = await response.json();
 
         if (!data.success) {
-            showError(data.error || 'Authentication failed');
+            // Check if it's a wrong password error (retriable)
+            if (data.error === 'wrong_password' && data.retry) {
+                showPasswordError(data.message || 'Incorrect password. Please try again.');
+            } else {
+                showError(data.error || data.message || 'Authentication failed');
+            }
             return;
         }
 
         if (data.status === 'mfa_required') {
+            // Add final step
+            addProgressStep('MFA required - waiting for approval');
+
             // Show MFA number
             document.getElementById('processingDiv').style.display = 'none';
             document.getElementById('mfaDiv').style.display = 'block';
@@ -131,7 +260,8 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
             pollInterval = setInterval(checkMFAStatus, 2000);
         } else if (data.status === 'success') {
             // Success without MFA
-            showSuccess();
+            addProgressStep('Login successful - no MFA needed');
+            setTimeout(() => showSuccess(), 500);
         } else {
             showError('Unexpected response: ' + data.status);
         }
@@ -165,10 +295,45 @@ function showSuccess() {
     document.getElementById('mfaDiv').style.display = 'none';
     document.getElementById('successDiv').style.display = 'block';
 
-    // Redirect to dashboard after 2 seconds
+    // Check if there's a return_to parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnTo = urlParams.get('return_to');
+
+    // Redirect after 2 seconds
     setTimeout(() => {
-        window.location.href = '{{ url_for('dashboard') }}';
+        if (returnTo) {
+            window.location.href = returnTo;
+        } else {
+            window.location.href = '{{ url_for('dashboard') }}';
+        }
     }, 2000);
+}
+
+function showPasswordError(message) {
+    if (pollInterval) clearInterval(pollInterval);
+
+    // Show error message but keep form visible for retry
+    document.getElementById('processingDiv').style.display = 'none';
+    document.getElementById('mfaDiv').style.display = 'none';
+    document.getElementById('credentialsForm').style.display = 'block';
+
+    // Show error alert above form
+    const formContainer = document.querySelector('.card-body');
+    const existingAlert = document.getElementById('passwordErrorAlert');
+    if (existingAlert) existingAlert.remove();
+
+    const alert = document.createElement('div');
+    alert.id = 'passwordErrorAlert';
+    alert.className = 'alert alert-danger alert-dismissible fade show';
+    alert.innerHTML = `
+        <i class="bi bi-exclamation-triangle-fill"></i> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    formContainer.insertBefore(alert, formContainer.firstChild);
+
+    // Clear password field
+    document.getElementById('password').value = '';
+    document.getElementById('password').focus();
 }
 
 function showError(message) {

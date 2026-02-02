@@ -63,9 +63,17 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Session security configuration
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=12)  # Sessions expire after 12 hours
-app.config['SESSION_COOKIE_SECURE'] = True  # Only send over HTTPS (Cloudflare provides this)
+
+# LOCAL_MODE: Allow HTTP cookies for localhost (set by _RUN_LOCAL.bat)
+# When running locally, we don't have HTTPS so cookies must work over HTTP
+local_mode = os.getenv('LOCAL_MODE', 'false').lower() == 'true'
+app.config['SESSION_COOKIE_SECURE'] = not local_mode  # False for localhost, True for production
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+
+if local_mode:
+    # Relax rate limits for local use
+    app.config['RATELIMIT_ENABLED'] = False
 
 # Security headers
 @app.after_request
@@ -313,9 +321,8 @@ def logout():
 # ============================================================================
 
 @app.route('/')
-@login_required
 def dashboard():
-    """Main dashboard"""
+    """Main dashboard - no login required for local single-user mode"""
     return render_template('dashboard.html', user=current_user)
 
 
@@ -464,9 +471,6 @@ def api_update_config():
         if not bot_config:
             return jsonify({'success': False, 'message': 'Configuration not found'}), 404
 
-        # Track if booking_days or blacklist changed (triggers auto-calculation)
-        needs_date_recalc = False
-
         # Update configuration
         if 'building' in data:
             bot_config.building = data['building']
@@ -478,23 +482,20 @@ def api_update_config():
             bot_config.set_dates_to_try(data['dates_to_try'])
         if 'booking_days' in data:
             bot_config.set_booking_days(data['booking_days'])
-            needs_date_recalc = True
         if 'blacklist_dates' in data:
             bot_config.set_blacklist_dates(data['blacklist_dates'])
-            needs_date_recalc = True
         if 'locked_desks' in data:
             bot_config.set_locked_desks(data['locked_desks'])
         if 'auto_ignore_uk_holidays' in data:
             bot_config.auto_ignore_uk_holidays = data['auto_ignore_uk_holidays']
-            needs_date_recalc = True
         if 'wait_times' in data:
             bot_config.set_wait_times(data['wait_times'])
         if 'browser_restart' in data:
             bot_config.set_browser_restart(data['browser_restart'])
 
-        # Auto-calculate dates if booking_days or blacklist changed
+        # ALWAYS recalculate dates to keep them fresh (preserves manual dates)
         updated_dates = None
-        if needs_date_recalc:
+        if True:  # Always recalculate
             from src.utils.date_calculator import update_user_dates
             updated_dates = update_user_dates(bot_config, preserve_manual=True)
             logger.info(f"Auto-calculated {len(updated_dates)} dates for user {current_user.username}")

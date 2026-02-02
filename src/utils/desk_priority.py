@@ -25,44 +25,66 @@ def parse_desk_number(desk_code: str) -> int:
     return 999  # Unknown format, low priority
 
 
-def parse_range(range_str: str) -> tuple:
+def parse_single_or_range(spec: str) -> tuple:
     """
-    Parse a range string into start and end desk codes.
+    Parse a desk specification (single desk or range).
 
     Args:
-        range_str: Range like "2.24.20-2.24.30"
+        spec: Either "2.24.02" (single) or "2.24.20-2.24.30" (range)
 
     Returns:
-        Tuple of (start_desk, end_desk) as strings
+        Tuple of (start_num, end_num) as integers
+        For single desk "2.24.02" returns (2, 2)
+        For range "2.24.20-2.24.30" returns (20, 30)
     """
-    parts = range_str.split('-')
-    if len(parts) == 2:
-        return (parts[0].strip(), parts[1].strip())
-    return (None, None)
+    spec = spec.strip()
+    
+    # Check if it's a range (contains hyphen between desk codes)
+    # Need to handle "2.24.20-2.24.30" but not confuse with "2.24.20"
+    parts = spec.split('-')
+    
+    if len(parts) == 2 and '.' in parts[1]:
+        # It's a range like "2.24.20-2.24.30"
+        start_num = parse_desk_number(parts[0].strip())
+        end_num = parse_desk_number(parts[1].strip())
+        return (start_num, end_num)
+    else:
+        # It's a single desk like "2.24.02"
+        desk_num = parse_desk_number(spec)
+        return (desk_num, desk_num)
 
 
 def is_desk_in_range(desk_code: str, range_str: str) -> bool:
     """
-    Check if a desk code falls within a range.
+    Check if a desk code matches a specification.
+    
+    Supports:
+        - Single desk: "2.24.02"
+        - Range: "2.24.06-2.24.08"
+        - Comma-separated list: "2.24.02, 2.24.06, 2.24.10-2.24.15"
 
     Args:
         desk_code: Desk like "2.24.25"
-        range_str: Range like "2.24.20-2.24.30"
+        range_str: Specification like "2.24.02" or "2.24.20-2.24.30" or "2.24.02, 2.24.06-2.24.08"
 
     Returns:
-        True if desk is in range
+        True if desk matches any part of the specification
     """
-    start_desk, end_desk = parse_range(range_str)
-
-    if not start_desk or not end_desk:
-        return False
-
-    # Extract desk numbers for comparison
     desk_num = parse_desk_number(desk_code)
-    start_num = parse_desk_number(start_desk)
-    end_num = parse_desk_number(end_desk)
-
-    return start_num <= desk_num <= end_num
+    
+    # Split by comma to handle lists like "2.24.02, 2.24.06, 2.24.10-2.24.15"
+    specs = [s.strip() for s in range_str.split(',')]
+    
+    for spec in specs:
+        if not spec:
+            continue
+            
+        start_num, end_num = parse_single_or_range(spec)
+        
+        if start_num <= desk_num <= end_num:
+            return True
+    
+    return False
 
 
 def get_desk_priority(desk_code: str, priority_config: List[Dict[str, Any]]) -> int:
